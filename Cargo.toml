@@ -1,0 +1,8 @@
+[package]
+name = "rust_interpretor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4.26"
+phf = {version = "0.11.3", features = ["macros"]}
