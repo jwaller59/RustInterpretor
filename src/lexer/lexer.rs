@@ -1,11 +1,10 @@
 use crate::token::token::{get_keywords, Delimiters, Identifier, Illegal, Operator, TokenType};
-use log::{info, warn};
 
-struct Lexer {
-    input: String,
-    position: usize,
-    read_position: usize,
-    ch: u8,
+pub struct Lexer {
+    pub input: String,
+    pub position: usize,
+    pub read_position: usize,
+    pub ch: u8,
 }
 
 impl Lexer {
@@ -21,21 +20,27 @@ impl Lexer {
         self.read_position += 1;
     }
 
-    fn next_token(&mut self) -> TokenType {
+    pub fn next_token(&mut self) -> TokenType {
         let tok: TokenType;
 
         self.skip_whitespace();
         println!("{:}", self.ch as char);
         match self.ch {
-            b'=' => tok = TokenType::Operator(Operator::ASSIGN("=".to_string())),
-            b'+' => tok = TokenType::Operator(Operator::PLUS("+".to_string())),
+            b'=' => tok = TokenType::Operator(Operator::ASSIGN("=")),
+            b'+' => tok = TokenType::Operator(Operator::PLUS("+")),
             b'(' => tok = TokenType::Del(Delimiters::LPAREN("(".to_string())),
             b')' => tok = TokenType::Del(Delimiters::RPAREN(")".to_string())),
-            b';' => tok = TokenType::Del(Delimiters::SEMICOLON(";".to_string())),
+            b';' => tok = TokenType::Del(Delimiters::SEMICOLON(";")),
             b'{' => tok = TokenType::Del(Delimiters::LBRACE("{".to_string())),
             b'}' => tok = TokenType::Del(Delimiters::RBRACE("}".to_string())),
             b',' => tok = TokenType::Del(Delimiters::COMMA(",".to_string())),
-            b'-' => tok = TokenType::Operator(Operator::SUBTRACT("-".to_string())),
+            b'-' => tok = TokenType::Operator(Operator::SUBTRACT("-")),
+            b'!' => tok = TokenType::Operator(Operator::BANG("!")),
+            b'/' => tok = TokenType::Operator(Operator::SLASH("/")),
+            b'*' => tok = TokenType::Operator(Operator::ASTER("*")),
+            b'<' => tok = TokenType::Operator(Operator::LTHAN("<")),
+            b'>' => tok = TokenType::Operator(Operator::GTHAN(">")),
+
             // if value is a word and not an operator - then we need to move position up to next
             // non string value
             //
@@ -79,7 +84,7 @@ impl Lexer {
     }
 }
 
-fn new_lexer(input: String) -> Lexer {
+pub fn new_lexer(input: String) -> Lexer {
     let mut lex = Lexer {
         input,
         position: 0,
@@ -89,6 +94,7 @@ fn new_lexer(input: String) -> Lexer {
     lex.read_char();
     return lex;
 }
+
 #[cfg(test)]
 mod tests {
     use crate::token::token::{Identifier, Keywords};
@@ -114,23 +120,27 @@ mod tests {
     let add = fn(x,y) {
         x + y;
     };
-    let result = add(five, ten);"
-            .to_string();
+    let result = add(five, ten);
+    !-/*5;
+    5<10>5;
+    5!=10;
+"
+        .to_string();
         let mut lex = new_lexer(input);
         let v = vec![
             TokenType::Keyword(Keywords::LET("let")),
             TokenType::Ident(Identifier::IDENT("five".to_string())),
-            TokenType::Operator(Operator::ASSIGN("=".to_string())),
+            TokenType::Operator(Operator::ASSIGN("=")),
             TokenType::Ident(Identifier::INT("5".to_string())),
-            TokenType::Del(Delimiters::SEMICOLON(";".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
             TokenType::Keyword(Keywords::LET("let")),
             TokenType::Ident(Identifier::IDENT("ten".to_string())),
-            TokenType::Operator(Operator::ASSIGN("=".to_string())),
+            TokenType::Operator(Operator::ASSIGN("=")),
             TokenType::Ident(Identifier::INT("10".to_string())),
-            TokenType::Del(Delimiters::SEMICOLON(";".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
             TokenType::Keyword(Keywords::LET("let")),
             TokenType::Ident(Identifier::IDENT("add".to_string())),
-            TokenType::Operator(Operator::ASSIGN("=".to_string())),
+            TokenType::Operator(Operator::ASSIGN("=")),
             TokenType::Keyword(Keywords::FUNCTION("fn")),
             TokenType::Del(Delimiters::LPAREN("(".to_string())),
             TokenType::Ident(Identifier::IDENT("x".to_string())),
@@ -139,21 +149,38 @@ mod tests {
             TokenType::Del(Delimiters::RPAREN(")".to_string())),
             TokenType::Del(Delimiters::LBRACE("{".to_string())),
             TokenType::Ident(Identifier::IDENT("x".to_string())),
-            TokenType::Operator(Operator::PLUS("+".to_string())),
+            TokenType::Operator(Operator::PLUS("+")),
             TokenType::Ident(Identifier::IDENT("y".to_string())),
-            TokenType::Del(Delimiters::SEMICOLON(";".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
             TokenType::Del(Delimiters::RBRACE("}".to_string())),
-            TokenType::Del(Delimiters::SEMICOLON(";".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
             TokenType::Keyword(Keywords::LET("let")),
             TokenType::Ident(Identifier::IDENT("result".to_string())),
-            TokenType::Operator(Operator::ASSIGN("=".to_string())),
+            TokenType::Operator(Operator::ASSIGN("=")),
             TokenType::Ident(Identifier::IDENT("add".to_string())),
             TokenType::Del(Delimiters::LPAREN("(".to_string())),
             TokenType::Ident(Identifier::IDENT("five".to_string())),
             TokenType::Del(Delimiters::COMMA(",".to_string())),
             TokenType::Ident(Identifier::IDENT("ten".to_string())),
             TokenType::Del(Delimiters::RPAREN(")".to_string())),
-            TokenType::Del(Delimiters::SEMICOLON(";".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
+            TokenType::Operator(Operator::BANG("!")),
+            TokenType::Operator(Operator::SUBTRACT("-")),
+            TokenType::Operator(Operator::SLASH("/")),
+            TokenType::Operator(Operator::ASTER("*")),
+            TokenType::Ident(Identifier::INT("5".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
+            TokenType::Ident(Identifier::INT("5".to_string())),
+            TokenType::Operator(Operator::LTHAN("<")),
+            TokenType::Ident(Identifier::INT("10".to_string())),
+            TokenType::Operator(Operator::GTHAN(">")),
+            TokenType::Ident(Identifier::INT("5".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
+            TokenType::Ident(Identifier::INT("5".to_string())),
+            TokenType::Operator(Operator::BANG("!")),
+            TokenType::Operator(Operator::ASSIGN("=")),
+            TokenType::Ident(Identifier::INT("10".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
         ];
         for i in &v {
             let token = lex.next_token();

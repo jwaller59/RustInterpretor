@@ -2,9 +2,15 @@ use phf::phf_map;
 
 #[derive(Debug, PartialEq)]
 pub enum Operator {
-    ASSIGN(String),
-    PLUS(String),
-    SUBTRACT(String),
+    ASSIGN(&'static str),
+    PLUS(&'static str),
+    SUBTRACT(&'static str),
+    BANG(&'static str),
+    NOEQUAL(&'static str),
+    SLASH(&'static str),
+    ASTER(&'static str),
+    LTHAN(&'static str),
+    GTHAN(&'static str),
 }
 
 #[derive(Debug, PartialEq)]
@@ -26,7 +32,7 @@ pub enum EOF {
 #[derive(Debug, PartialEq)]
 pub enum Delimiters {
     COMMA(String),
-    SEMICOLON(String),
+    SEMICOLON(&'static str),
     LPAREN(String),
     RPAREN(String),
     LBRACE(String),
