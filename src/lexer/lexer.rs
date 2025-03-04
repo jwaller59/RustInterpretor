@@ -9,13 +9,7 @@ pub struct Lexer {
 
 impl Lexer {
     fn read_char(&mut self) {
-        if usize::from(self.read_position) >= self.input.len() {
-            self.ch = 0
-        } else {
-            // this will only work if its ascii characters.
-            // we format to bytes
-            self.ch = self.input.bytes().nth(self.read_position.into()).unwrap()
-        }
+        self.ch = self.peekahead();
         self.position = self.read_position;
         self.read_position += 1;
     }
@@ -26,16 +20,16 @@ impl Lexer {
         self.skip_whitespace();
         println!("{:}", self.ch as char);
         match self.ch {
-            b'=' => tok = TokenType::Operator(Operator::ASSIGN("=")),
+            b'=' => tok = self.handle_eq_and_noeq(),
             b'+' => tok = TokenType::Operator(Operator::PLUS("+")),
-            b'(' => tok = TokenType::Del(Delimiters::LPAREN("(".to_string())),
-            b')' => tok = TokenType::Del(Delimiters::RPAREN(")".to_string())),
+            b'(' => tok = TokenType::Del(Delimiters::LPAREN("(")),
+            b')' => tok = TokenType::Del(Delimiters::RPAREN(")")),
             b';' => tok = TokenType::Del(Delimiters::SEMICOLON(";")),
-            b'{' => tok = TokenType::Del(Delimiters::LBRACE("{".to_string())),
-            b'}' => tok = TokenType::Del(Delimiters::RBRACE("}".to_string())),
-            b',' => tok = TokenType::Del(Delimiters::COMMA(",".to_string())),
+            b'{' => tok = TokenType::Del(Delimiters::LBRACE("{")),
+            b'}' => tok = TokenType::Del(Delimiters::RBRACE("}")),
+            b',' => tok = TokenType::Del(Delimiters::COMMA(",")),
             b'-' => tok = TokenType::Operator(Operator::SUBTRACT("-")),
-            b'!' => tok = TokenType::Operator(Operator::BANG("!")),
+            b'!' => tok = self.handle_eq_and_noeq(),
             b'/' => tok = TokenType::Operator(Operator::SLASH("/")),
             b'*' => tok = TokenType::Operator(Operator::ASTER("*")),
             b'<' => tok = TokenType::Operator(Operator::LTHAN("<")),
@@ -66,6 +60,37 @@ impl Lexer {
         };
         self.read_char();
         return tok;
+    }
+
+    fn peekahead(&mut self) -> u8 {
+        // peek ahead at next character
+        if usize::from(self.read_position) >= self.input.len() {
+            return 0;
+        } else {
+            // this will only work if its ascii characters.
+            // we format to bytes
+            return self.input.bytes().nth((self.read_position).into()).unwrap();
+        }
+    }
+
+    fn handle_eq_and_noeq(&mut self) -> TokenType {
+        let peek = self.peekahead();
+        let current_char = self.ch;
+        if current_char == b'!' {
+            if peek == b'=' {
+                self.read_char();
+                return TokenType::Operator(Operator::NOEQUAL("!="));
+            } else {
+                return TokenType::Operator(Operator::BANG("!"));
+            }
+        } else {
+            if peek == b'=' {
+                self.read_char();
+                return TokenType::Operator(Operator::EQ("=="));
+            } else {
+                return TokenType::Operator(Operator::ASSIGN("="));
+            }
+        }
     }
 
     fn read_identifier(&mut self) -> &str {
@@ -114,6 +139,13 @@ mod tests {
         assert_eq!(lex.ch, b'b');
     }
     #[test]
+    fn peak_ahead_test() {
+        let mut lex = new_lexer("abcd".to_string());
+        lex.read_char();
+        assert_eq!(lex.peekahead() as char, b'c' as char)
+    }
+
+    #[test]
     fn next_token_test() {
         let input = "let five = 5; 
     let ten = 10;
@@ -124,6 +156,12 @@ mod tests {
     !-/*5;
     5<10>5;
     5!=10;
+    10==10;
+    if (5 < 10) {
+        return true; } 
+        else {
+        return false;
+}
 "
         .to_string();
         let mut lex = new_lexer(input);
@@ -142,27 +180,27 @@ mod tests {
             TokenType::Ident(Identifier::IDENT("add".to_string())),
             TokenType::Operator(Operator::ASSIGN("=")),
             TokenType::Keyword(Keywords::FUNCTION("fn")),
-            TokenType::Del(Delimiters::LPAREN("(".to_string())),
+            TokenType::Del(Delimiters::LPAREN("(")),
             TokenType::Ident(Identifier::IDENT("x".to_string())),
-            TokenType::Del(Delimiters::COMMA(",".to_string())),
+            TokenType::Del(Delimiters::COMMA(",")),
             TokenType::Ident(Identifier::IDENT("y".to_string())),
-            TokenType::Del(Delimiters::RPAREN(")".to_string())),
-            TokenType::Del(Delimiters::LBRACE("{".to_string())),
+            TokenType::Del(Delimiters::RPAREN(")")),
+            TokenType::Del(Delimiters::LBRACE("{")),
             TokenType::Ident(Identifier::IDENT("x".to_string())),
             TokenType::Operator(Operator::PLUS("+")),
             TokenType::Ident(Identifier::IDENT("y".to_string())),
             TokenType::Del(Delimiters::SEMICOLON(";")),
-            TokenType::Del(Delimiters::RBRACE("}".to_string())),
+            TokenType::Del(Delimiters::RBRACE("}")),
             TokenType::Del(Delimiters::SEMICOLON(";")),
             TokenType::Keyword(Keywords::LET("let")),
             TokenType::Ident(Identifier::IDENT("result".to_string())),
             TokenType::Operator(Operator::ASSIGN("=")),
             TokenType::Ident(Identifier::IDENT("add".to_string())),
-            TokenType::Del(Delimiters::LPAREN("(".to_string())),
+            TokenType::Del(Delimiters::LPAREN("(")),
             TokenType::Ident(Identifier::IDENT("five".to_string())),
-            TokenType::Del(Delimiters::COMMA(",".to_string())),
+            TokenType::Del(Delimiters::COMMA(",")),
             TokenType::Ident(Identifier::IDENT("ten".to_string())),
-            TokenType::Del(Delimiters::RPAREN(")".to_string())),
+            TokenType::Del(Delimiters::RPAREN(")")),
             TokenType::Del(Delimiters::SEMICOLON(";")),
             TokenType::Operator(Operator::BANG("!")),
             TokenType::Operator(Operator::SUBTRACT("-")),
@@ -177,10 +215,30 @@ mod tests {
             TokenType::Ident(Identifier::INT("5".to_string())),
             TokenType::Del(Delimiters::SEMICOLON(";")),
             TokenType::Ident(Identifier::INT("5".to_string())),
-            TokenType::Operator(Operator::BANG("!")),
-            TokenType::Operator(Operator::ASSIGN("=")),
+            TokenType::Operator(Operator::NOEQUAL("!=")),
             TokenType::Ident(Identifier::INT("10".to_string())),
             TokenType::Del(Delimiters::SEMICOLON(";")),
+            TokenType::Ident(Identifier::INT("10".to_string())),
+            TokenType::Operator(Operator::EQ("==")),
+            TokenType::Ident(Identifier::INT("10".to_string())),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
+            TokenType::Keyword(Keywords::IF("if")),
+            TokenType::Del(Delimiters::LPAREN("(")),
+            TokenType::Ident(Identifier::INT("5".to_string())),
+            TokenType::Operator(Operator::LTHAN("<")),
+            TokenType::Ident(Identifier::INT("10".to_string())),
+            TokenType::Del(Delimiters::RPAREN(")")),
+            TokenType::Del(Delimiters::LBRACE("{")),
+            TokenType::Keyword(Keywords::RETURN("return")),
+            TokenType::Keyword(Keywords::TRUE("true")),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
+            TokenType::Del(Delimiters::RBRACE("}")),
+            TokenType::Keyword(Keywords::ELSE("else")),
+            TokenType::Del(Delimiters::LBRACE("{")),
+            TokenType::Keyword(Keywords::RETURN("return")),
+            TokenType::Keyword(Keywords::FALSE("false")),
+            TokenType::Del(Delimiters::SEMICOLON(";")),
+            TokenType::Del(Delimiters::RBRACE("}")),
         ];
         for i in &v {
             let token = lex.next_token();

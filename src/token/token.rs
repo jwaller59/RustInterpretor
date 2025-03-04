@@ -11,6 +11,7 @@ pub enum Operator {
     ASTER(&'static str),
     LTHAN(&'static str),
     GTHAN(&'static str),
+    EQ(&'static str),
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,18 +32,23 @@ pub enum EOF {
 
 #[derive(Debug, PartialEq)]
 pub enum Delimiters {
-    COMMA(String),
+    COMMA(&'static str),
     SEMICOLON(&'static str),
-    LPAREN(String),
-    RPAREN(String),
-    LBRACE(String),
-    RBRACE(String),
+    LPAREN(&'static str),
+    RPAREN(&'static str),
+    LBRACE(&'static str),
+    RBRACE(&'static str),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Keywords {
     FUNCTION(&'static str),
     LET(&'static str),
+    TRUE(&'static str),
+    FALSE(&'static str),
+    RETURN(&'static str),
+    IF(&'static str),
+    ELSE(&'static str),
 }
 
 #[derive(Debug, PartialEq)]
@@ -57,7 +63,12 @@ pub enum TokenType {
 
 static KEYWORDS: phf::Map<&'static str, Keywords> = phf_map! {
     "let" => Keywords::LET("let"),
-    "fn" => Keywords::FUNCTION("fn")
+    "fn" => Keywords::FUNCTION("fn"),
+    "true" => Keywords::TRUE("true"),
+    "false" => Keywords::FALSE("false"),
+    "return" =>Keywords::RETURN("return"),
+    "if" => Keywords::IF("if"),
+    "else" => Keywords::ELSE("else"),
 
 };
 
