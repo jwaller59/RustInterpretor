@@ -1,13 +1,15 @@
-use crate::token::token::{get_keywords, Delimiters, Identifier, Illegal, Operator, TokenType};
+use std::collections::HashMap;
 
-pub struct Lexer {
-    pub input: String,
+use crate::token::token::{get_keywords, Delimiters, Identifier, Operator, TokenType};
+
+pub struct Lexer<'a> {
+    pub input: &'a str,
     pub position: usize,
     pub read_position: usize,
     pub ch: u8,
 }
 
-impl Lexer {
+impl<'a> Lexer<'a> {
     fn read_char(&mut self) {
         self.ch = self.peekahead();
         self.position = self.read_position;
@@ -18,7 +20,6 @@ impl Lexer {
         let tok: TokenType;
 
         self.skip_whitespace();
-        println!("{:}", self.ch as char);
         match self.ch {
             b'=' => tok = self.handle_eq_and_noeq(),
             b'+' => tok = TokenType::Operator(Operator::PLUS("+")),
@@ -34,6 +35,7 @@ impl Lexer {
             b'*' => tok = TokenType::Operator(Operator::ASTER("*")),
             b'<' => tok = TokenType::Operator(Operator::LTHAN("<")),
             b'>' => tok = TokenType::Operator(Operator::GTHAN(">")),
+            b'\0' => tok = TokenType::EOF,
 
             // if value is a word and not an operator - then we need to move position up to next
             // non string value
@@ -51,10 +53,15 @@ impl Lexer {
                     return tok;
                 } else if self.ch.is_ascii_digit() {
                     tok = TokenType::Ident(Identifier::INT(self.read_identifier().to_string()));
+
+                    // if value at top of tokens stack is an assignment value - then we take the
+                    // value at top of stack -2 as the identifier and assign our digit to this
+                    // value in the hashmap
+
                     return tok;
                 } else {
                     println!("{:?}", self.ch as char);
-                    tok = TokenType::Illegal(Illegal::ILLEGAL(self.ch.to_string()));
+                    tok = TokenType::Illegal
                 }
             }
         };
@@ -107,17 +114,18 @@ impl Lexer {
             self.read_char()
         }
     }
-}
-
-pub fn new_lexer(input: String) -> Lexer {
-    let mut lex = Lexer {
-        input,
-        position: 0,
-        read_position: 0,
-        ch: 0,
-    };
-    lex.read_char();
-    return lex;
+    pub fn new() -> Self {
+        Self {
+            input: "",
+            position: 0,
+            read_position: 0,
+            ch: 0,
+        }
+    }
+    pub fn process_input(&mut self, input: &'a str) {
+        self.input = input;
+        self.read_char();
+    }
 }
 
 #[cfg(test)]
@@ -128,19 +136,22 @@ mod tests {
 
     #[test]
     fn build_user_test() {
-        let user = new_lexer("abcd".to_string());
-        assert_eq!(user.input, "abcd")
+        let mut lexer = Lexer::new();
+        lexer.process_input("abcd");
+        assert_eq!(lexer.input, "abcd")
     }
     #[test]
     fn read_char_test() {
-        let mut lex = new_lexer("abcd".to_string());
+        let mut lex = Lexer::new();
+        lex.process_input("abcd");
         lex.read_char();
         assert_eq!(lex.read_position, 2);
         assert_eq!(lex.ch, b'b');
     }
     #[test]
     fn peak_ahead_test() {
-        let mut lex = new_lexer("abcd".to_string());
+        let mut lex = Lexer::new();
+        lex.process_input("abcd");
         lex.read_char();
         assert_eq!(lex.peekahead() as char, b'c' as char)
     }
@@ -162,9 +173,9 @@ mod tests {
         else {
         return false;
 }
-"
-        .to_string();
-        let mut lex = new_lexer(input);
+";
+        let mut lex = Lexer::new();
+        lex.process_input(input);
         let v = vec![
             TokenType::Keyword(Keywords::LET("let")),
             TokenType::Ident(Identifier::IDENT("five".to_string())),

@@ -1,6 +1,6 @@
 use phf::phf_map;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     ASSIGN(&'static str),
     PLUS(&'static str),
@@ -14,23 +14,23 @@ pub enum Operator {
     EQ(&'static str),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Identifier {
     IDENT(String),
     INT(String),
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Illegal {
-    ILLEGAL(String),
-}
+//#[derive(Debug, PartialEq)]
+//pub enum Illegal {
+//    ILLEGAL(String),
+//}
+//
+//#[derive(Debug, PartialEq)]
+//pub enum EOF {
+//    EOF,
+//}
 
-#[derive(Debug, PartialEq)]
-pub enum EOF {
-    EOF(String),
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Delimiters {
     COMMA(&'static str),
     SEMICOLON(&'static str),
@@ -51,12 +51,12 @@ pub enum Keywords {
     ELSE(&'static str),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     Operator(Operator),
     Ident(Identifier),
-    Illegal(Illegal),
-    EOF(EOF),
+    Illegal,
+    EOF,
     Del(Delimiters),
     Keyword(Keywords),
 }
@@ -74,4 +74,24 @@ static KEYWORDS: phf::Map<&'static str, Keywords> = phf_map! {
 
 pub fn get_keywords(keyword: &str) -> Option<Keywords> {
     KEYWORDS.get(keyword).cloned()
+}
+
+impl TokenType {
+    pub fn retrieve_value(&self) -> Option<&str> {
+        match self {
+            Self::Ident(Identifier::IDENT(s)) => Some(s),
+            Self::Ident(Identifier::INT(s)) => Some(s),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_retrieve_value() {
+        let tokenident = TokenType::Ident(Identifier::IDENT("orange".to_string()));
+        assert_eq!(tokenident.retrieve_value().unwrap(), "orange")
+    }
 }
