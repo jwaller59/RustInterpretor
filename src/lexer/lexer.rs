@@ -18,7 +18,6 @@ impl<'a> Lexer<'a> {
 
     pub fn next_token(&mut self) -> TokenType {
         let tok: TokenType;
-
         self.skip_whitespace();
         match self.ch {
             b'=' => tok = self.handle_eq_and_noeq(),
