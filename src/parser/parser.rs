@@ -1,3 +1,5 @@
+use std::{string, vec};
+
 use ast::{AstNode, LetStatement};
 
 use crate::ast::*;
@@ -8,6 +10,7 @@ struct Parser<'a> {
     lex: &'a mut Lexer<'a>,
     curtoken: TokenType,
     peektoken: TokenType,
+    errors: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -18,6 +21,7 @@ impl<'a> Parser<'a> {
             lex: lexer,
             curtoken: TokenType::EOF,
             peektoken: TokenType::EOF,
+            errors: Vec::new(),
         }
     }
 
@@ -65,12 +69,15 @@ impl<'a> Parser<'a> {
         // assign values and return that statement value
         // this triggers once the current token is identied as a let token
         let lettoken = self.curtoken.clone();
-        self.next_token();
+        println!("{:?}", self.peektoken);
+        if !self.expect_peek(|t| matches!(t, TokenType::Ident(Identifier::IDENT(_)))) {
+            panic!()
+        }
         let identifier = self
             .parse_identifier()
             .expect("Parse identifier should return an Identifier Object not None");
-        self.next_token();
-        if self.curtoken != TokenType::Operator(Operator::ASSIGN("=")) {
+        //self.next_token();
+        if !self.expect_peek(|t| matches!(t, TokenType::Operator(Operator::ASSIGN("=")))) {
             panic!();
         } else {
             // we know current value is assign operator - so we iterate forwards again
@@ -80,7 +87,7 @@ impl<'a> Parser<'a> {
                 self.curtoken.retrieve_value().unwrap().to_string(),
             ));
             let tok = Ok(LetStatement::new(lettoken, identifier, astnode));
-            while self.curtoken != TokenType::Del(Delimiters::SEMICOLON(";")) {
+            while !self.cur_token_is(TokenType::Del(Delimiters::SEMICOLON(";"))) {
                 self.next_token();
             }
             return tok;
@@ -92,6 +99,46 @@ impl<'a> Parser<'a> {
             self.curtoken.clone(),
             self.curtoken.retrieve_value()?.to_string(),
         ))
+    }
+
+    fn cur_token_is(&self, tok: TokenType) -> bool {
+        self.curtoken == tok
+    }
+
+    fn peek_token_is(&self, tok: &TokenType) -> bool {
+        self.peektoken == *tok
+    }
+
+    fn peek_error(&mut self, tok: TokenType) -> () {
+        let msg = ("Expected token to be x, got {:?}").to_string();
+        self.errors.push(msg);
+    }
+
+    fn expect_peek<F>(&mut self, matcher: F) -> bool
+    where
+        F: FnOnce(&TokenType) -> bool,
+    {
+        if matcher(&self.peektoken) {
+            self.next_token();
+            return true;
+        } else {
+            self.peek_error(self.curtoken.clone());
+            return false;
+        }
+    }
+
+    //fn expect_peek(&mut self, tok: TokenType) -> bool {
+    //    if matches!(&self.curtoken, tok) {
+    //        self.next_token();
+    //        return true;
+    //    } else {
+    //        self.peek_error(tok);
+    //        return false;
+    //    }
+    //}
+
+    fn get_errors(self) -> Vec<String> {
+        self.errors
     }
 }
 
