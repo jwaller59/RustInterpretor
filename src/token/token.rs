@@ -1,3 +1,5 @@
+use core::fmt;
+
 use phf::phf_map;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -83,6 +85,12 @@ impl TokenType {
             Self::Ident(Identifier::INT(s)) => Some(s),
             _ => None,
         }
+    }
+}
+
+impl fmt::Display for TokenType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({})", self)
     }
 }
 

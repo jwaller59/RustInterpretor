@@ -1,6 +1,8 @@
-use std::{fmt::Debug, vec};
+use std::fmt::Debug;
 
-use crate::token::token::*;
+use token::TokenType;
+
+use crate::token::*;
 // AST takes token inputs and identifies and parses input information
 // into a datastructure relating to the input.
 // this data structure contains items on left and right side of operator
@@ -27,9 +29,9 @@ use crate::token::token::*;
 //#[derive(Debug)]
 #[derive(Debug)]
 pub struct LetStatement {
-    pub token: TokenType,
+    pub token: token::TokenType,
     pub name: Identifier,
-    pub value: Box<dyn Node>,
+    pub value: Box<Expression>,
 }
 impl Node for LetStatement {
     fn token_literal(&self) -> String {
@@ -42,28 +44,64 @@ impl Node for LetStatement {
 }
 
 impl LetStatement {
-    pub fn new(token: TokenType, name: Identifier, value: Box<dyn Node>) -> Self {
+    pub fn new(token: token::TokenType, name: Identifier, value: Box<Expression>) -> Self {
         Self { token, name, value }
     }
 }
 
 impl Statement for LetStatement {
-    fn get_value(&self) -> &Box<dyn Node> {
+    fn get_value(&self) -> &Expression {
         &self.value
     }
 
-    fn get_identifier(&self) -> &Identifier {
-        &self.name
+    fn get_identifier(&self) -> Option<&Identifier> {
+        Some(&self.name)
     }
 
-    fn get_token(&self) -> &TokenType {
+    fn get_token(&self) -> &token::TokenType {
+        &self.token
+    }
+}
+
+#[derive(Debug)]
+pub struct ReturnStatement {
+    token: token::TokenType,
+    value: Expression,
+}
+
+impl ReturnStatement {
+    pub fn new(token: TokenType, value: Expression) -> Self {
+        Self { token, value }
+    }
+}
+
+impl Node for ReturnStatement {
+    fn token_literal(&self) -> String {
+        let val = self.token.retrieve_value();
+        match val {
+            Some(a) => return a.to_string(),
+            _ => return "".to_string(),
+        }
+    }
+}
+
+impl Statement for ReturnStatement {
+    fn get_value(&self) -> &Expression {
+        &self.value
+    }
+
+    fn get_identifier(&self) -> Option<&Identifier> {
+        None
+    }
+
+    fn get_token(&self) -> &token::TokenType {
         &self.token
     }
 }
 
 #[derive(Debug)]
 pub struct Identifier {
-    token: TokenType,
+    token: token::TokenType,
     value: String,
 }
 impl Node for Identifier {
@@ -77,22 +115,40 @@ impl Node for Identifier {
 }
 
 impl Identifier {
-    pub fn new(token: TokenType, value: String) -> Self {
+    pub fn new(token: token::TokenType, value: String) -> Self {
         Self { token, value }
     }
 }
 
-impl Expression for Identifier {}
-impl Expression for AstNode {}
+#[derive(Debug)]
+pub struct Expression {
+    pub r#type: token::TokenType,
+    pub value: String,
+}
+
+impl Expression {
+    pub fn new(r#type: token::TokenType, value: String) -> Self {
+        Self { r#type, value }
+    }
+}
+impl Node for Expression {
+    fn token_literal(&self) -> String {
+        let val = self.r#type.retrieve_value();
+        match val {
+            Some(a) => return a.to_string(),
+            _ => return "".to_string(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct AstNode {
-    pub r#type: TokenType,
+    pub r#type: token::TokenType,
     pub value: String,
 }
 
 impl AstNode {
-    pub fn new(t: TokenType, v: String) -> Self {
+    pub fn new(t: token::TokenType, v: String) -> Self {
         Self {
             r#type: t,
             value: v,
@@ -105,12 +161,12 @@ pub trait Node: Debug {
 }
 
 pub trait Statement: Node {
-    fn get_value(&self) -> &Box<dyn Node>;
-    fn get_identifier(&self) -> &Identifier;
-    fn get_token(&self) -> &TokenType;
-}
+    fn get_value(&self) -> &Expression;
 
-pub trait Expression: Node {}
+    fn get_identifier(&self) -> Option<&Identifier>;
+
+    fn get_token(&self) -> &token::TokenType;
+}
 
 impl Node for AstNode {
     fn token_literal(&self) -> String {
