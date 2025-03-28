@@ -1,10 +1,10 @@
-use ast::{AstNode, LetStatement, ReturnStatement};
+use ast::LetStatement;
 
 use crate::ast::*;
-use crate::lexer::{self, lexer::*};
+use crate::lexer::lexer::*;
 use crate::token::token::{Identifier, *};
 
-struct Parser<'a> {
+pub struct Parser<'a> {
     lex: &'a mut Lexer<'a>,
     curtoken: TokenType,
     peektoken: TokenType,
@@ -12,7 +12,7 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(lexer: &'a mut Lexer<'a>) -> Self {
+    pub fn new(lexer: &'a mut Lexer<'a>) -> Self {
         //cur token needs to become peek token
         // and peek token is always token returned from lexer.
         Self {
@@ -28,7 +28,7 @@ impl<'a> Parser<'a> {
         self.peektoken = self.lex.next_token();
     }
 
-    fn parse_programme(&mut self) -> Result<ast::Program, ()> {
+    pub fn parse_programme(&mut self) -> Result<ast::Program, ()> {
         let mut prog = ast::Program::new();
 
         while self.curtoken == TokenType::EOF {
@@ -72,7 +72,6 @@ impl<'a> Parser<'a> {
         // assign values and return that statement value
         // this triggers once the current token is identied as a let token
         let lettoken = self.curtoken.clone();
-        println!("{:?}", self.peektoken);
         self.expect_peek(|t| matches!(t, TokenType::Ident(Identifier::IDENT(_))));
         let identifier = self
             .parse_identifier()
@@ -81,9 +80,9 @@ impl<'a> Parser<'a> {
         self.expect_peek(|t| matches!(t, TokenType::Operator(Operator::ASSIGN("="))));
         // we know current value is assign operator - so we iterate forwards again
         self.next_token();
-        let astnode = Box::new(ast::Expression::new(
+        let astnode = Box::new(ast::AstNode::new(
             self.curtoken.clone(),
-            self.curtoken.retrieve_value().unwrap().to_string(),
+            self.curtoken.retrieve_string().unwrap().to_string(),
         ));
         let tok = Ok(LetStatement::new(lettoken, identifier, astnode));
         while !self.cur_token_is(TokenType::Del(Delimiters::SEMICOLON(";"))) {
@@ -94,10 +93,9 @@ impl<'a> Parser<'a> {
 
     fn parse_return_statement(&mut self) -> Result<ast::ReturnStatement, ()> {
         // assume its a return statement
-        println!("{:?}", self.peektoken);
-        let expression = ast::Expression::new(
+        let expression = ast::AstNode::new(
             self.peektoken.clone(),
-            self.peektoken.retrieve_value().unwrap().to_string(),
+            self.peektoken.retrieve_string().unwrap().to_string(),
         );
         let return_stmnt = ast::ReturnStatement::new(self.curtoken.clone(), expression);
         self.next_token();
@@ -110,7 +108,7 @@ impl<'a> Parser<'a> {
     fn parse_identifier(&self) -> Option<ast::Identifier> {
         Some(ast::Identifier::new(
             self.curtoken.clone(),
-            self.curtoken.retrieve_value()?.to_string(),
+            self.curtoken.retrieve_string()?.to_string(),
         ))
     }
 
@@ -125,8 +123,8 @@ impl<'a> Parser<'a> {
     fn peek_error(&mut self, tok: TokenType) -> () {
         let msg = format!(
             "Expected token to be {}, got {}",
-            tok.retrieve_value().unwrap(),
-            self.peektoken.retrieve_value().unwrap()
+            tok.retrieve_string().unwrap(),
+            self.peektoken.retrieve_string().unwrap()
         );
         //panic!("{}", msg);
         self.errors.push(msg);

@@ -79,10 +79,17 @@ pub fn get_keywords(keyword: &str) -> Option<Keywords> {
 }
 
 impl TokenType {
-    pub fn retrieve_value(&self) -> Option<&str> {
+    pub fn retrieve_string(&self) -> Option<&str> {
         match self {
             Self::Ident(Identifier::IDENT(s)) => Some(s),
             Self::Ident(Identifier::INT(s)) => Some(s),
+            Self::Keyword(Keywords::LET(s)) => Some(s),
+            Self::Keyword(Keywords::TRUE(s)) => Some(s),
+            Self::Keyword(Keywords::IF(s)) => Some(s),
+            Self::Keyword(Keywords::ELSE(s)) => Some(s),
+            Self::Keyword(Keywords::RETURN(s)) => Some(s),
+            Self::Keyword(Keywords::FALSE(s)) => Some(s),
+            Self::Keyword(Keywords::FUNCTION(s)) => Some(s),
             _ => None,
         }
     }
@@ -100,6 +107,6 @@ mod tests {
     #[test]
     fn test_retrieve_value() {
         let tokenident = TokenType::Ident(Identifier::IDENT("orange".to_string()));
-        assert_eq!(tokenident.retrieve_value().unwrap(), "orange")
+        assert_eq!(tokenident.retrieve_string().unwrap(), "orange")
     }
 }

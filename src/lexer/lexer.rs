@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::token::token::{get_keywords, Delimiters, Identifier, Operator, TokenType};
 
 pub struct Lexer<'a> {
@@ -59,7 +57,7 @@ impl<'a> Lexer<'a> {
 
                     return tok;
                 } else {
-                    println!("{:?}", self.ch as char);
+                    //println!("{:?}", self.ch as char);
                     tok = TokenType::Illegal
                 }
             }

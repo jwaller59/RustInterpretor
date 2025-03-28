@@ -31,11 +31,11 @@ use crate::token::*;
 pub struct LetStatement {
     pub token: token::TokenType,
     pub name: Identifier,
-    pub value: Box<Expression>,
+    pub value: Box<AstNode>,
 }
 impl Node for LetStatement {
     fn token_literal(&self) -> String {
-        let val = self.token.retrieve_value();
+        let val = self.token.retrieve_string();
         match val {
             Some(a) => return a.to_string(),
             _ => return "".to_string(),
@@ -44,13 +44,13 @@ impl Node for LetStatement {
 }
 
 impl LetStatement {
-    pub fn new(token: token::TokenType, name: Identifier, value: Box<Expression>) -> Self {
+    pub fn new(token: token::TokenType, name: Identifier, value: Box<AstNode>) -> Self {
         Self { token, name, value }
     }
 }
 
 impl Statement for LetStatement {
-    fn get_value(&self) -> &Expression {
+    fn get_value(&self) -> &AstNode {
         &self.value
     }
 
@@ -61,23 +61,34 @@ impl Statement for LetStatement {
     fn get_token(&self) -> &token::TokenType {
         &self.token
     }
+
+    fn generate_string(&self) -> String {
+        let mut string_buff = String::new();
+        string_buff.push_str(self.get_token().retrieve_string().unwrap());
+        string_buff.push_str(" ");
+        string_buff.push_str(&self.name.token_literal());
+        string_buff.push_str(" = ");
+        string_buff.push_str(&self.get_value().token_literal());
+        string_buff.push_str(";");
+        string_buff
+    }
 }
 
 #[derive(Debug)]
 pub struct ReturnStatement {
     token: token::TokenType,
-    value: Expression,
+    value: AstNode,
 }
 
 impl ReturnStatement {
-    pub fn new(token: TokenType, value: Expression) -> Self {
+    pub fn new(token: TokenType, value: AstNode) -> Self {
         Self { token, value }
     }
 }
 
 impl Node for ReturnStatement {
     fn token_literal(&self) -> String {
-        let val = self.token.retrieve_value();
+        let val = self.token.retrieve_string();
         match val {
             Some(a) => return a.to_string(),
             _ => return "".to_string(),
@@ -86,7 +97,7 @@ impl Node for ReturnStatement {
 }
 
 impl Statement for ReturnStatement {
-    fn get_value(&self) -> &Expression {
+    fn get_value(&self) -> &AstNode {
         &self.value
     }
 
@@ -97,6 +108,16 @@ impl Statement for ReturnStatement {
     fn get_token(&self) -> &token::TokenType {
         &self.token
     }
+
+    fn generate_string(&self) -> String {
+        let mut stringbuff = String::new();
+        // if return statement return the token and value
+        stringbuff.push_str(&self.get_token().retrieve_string().unwrap());
+        stringbuff.push_str(" ");
+        stringbuff.push_str(&self.get_value().token_literal());
+        stringbuff.push_str(";");
+        stringbuff
+    }
 }
 
 #[derive(Debug)]
@@ -106,7 +127,7 @@ pub struct Identifier {
 }
 impl Node for Identifier {
     fn token_literal(&self) -> String {
-        let val = self.token.retrieve_value();
+        let val = self.token.retrieve_string();
         match val {
             Some(a) => return a.to_string(),
             _ => return "".to_string(),
@@ -123,21 +144,50 @@ impl Identifier {
 #[derive(Debug)]
 pub struct Expression {
     pub r#type: token::TokenType,
-    pub value: String,
+    pub value: AstNode,
 }
 
 impl Expression {
-    pub fn new(r#type: token::TokenType, value: String) -> Self {
+    pub fn new(r#type: token::TokenType, value: AstNode) -> Self {
         Self { r#type, value }
     }
 }
 impl Node for Expression {
     fn token_literal(&self) -> String {
-        let val = self.r#type.retrieve_value();
+        let val = self.r#type.retrieve_string();
         match val {
             Some(a) => return a.to_string(),
             _ => return "".to_string(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ExpressionStatement {
+    token: TokenType,
+    express: Expression,
+}
+impl Node for ExpressionStatement {
+    fn token_literal(&self) -> String {
+        let val = self.token.retrieve_string();
+        match val {
+            Some(a) => return a.to_string(),
+            _ => return "".to_string(),
+        }
+    }
+}
+impl Statement for ExpressionStatement {
+    fn get_value(&self) -> &AstNode {
+        &self.express.value
+    }
+    fn get_token(&self) -> &token::TokenType {
+        &self.token
+    }
+    fn get_identifier(&self) -> Option<&Identifier> {
+        None
+    }
+    fn generate_string(&self) -> String {
+        return "".to_string();
     }
 }
 
@@ -155,26 +205,33 @@ impl AstNode {
         }
     }
 }
+impl Node for AstNode {
+    fn token_literal(&self) -> String {
+        let val = self.r#type.retrieve_string();
+        match val {
+            Some(a) => return a.to_string(),
+            _ => return "".to_string(),
+        }
+    }
+}
 
 pub trait Node: Debug {
     fn token_literal(&self) -> String;
 }
 
 pub trait Statement: Node {
-    fn get_value(&self) -> &Expression;
+    fn get_value(&self) -> &AstNode;
 
     fn get_identifier(&self) -> Option<&Identifier>;
 
     fn get_token(&self) -> &token::TokenType;
-}
 
-impl Node for AstNode {
-    fn token_literal(&self) -> String {
-        let val = self.r#type.retrieve_value();
-        match val {
-            Some(a) => return a.to_string(),
-            _ => return "".to_string(),
-        }
+    fn generate_string(&self) -> String {
+        let mut string_buff = String::new();
+        string_buff.push_str(self.get_token().retrieve_string().unwrap());
+        string_buff.push_str(" ");
+        string_buff.push_str(&self.get_value().token_literal());
+        string_buff
     }
 }
 
@@ -189,6 +246,20 @@ impl Program {
             statements: Vec::new(),
         }
     }
+
+    pub fn string(&self) -> String {
+        // iterate through statements and add each string value to buffer to be read
+        // out
+        let mut strbuff = String::new();
+        for (i, n) in self.statements.iter().enumerate() {
+            //strbuff.push_str(&n.get_value().token_literal());
+            strbuff.push_str(&n.generate_string());
+            if i != self.statements.len() - 1 {
+                strbuff.push_str(" ");
+            }
+        }
+        return strbuff;
+    }
 }
 
 impl Node for Program {
@@ -198,5 +269,69 @@ impl Node for Program {
         } else {
             return "".to_string();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::lexer::Lexer;
+    use crate::parser::parser::Parser;
+
+    #[test]
+    fn test_let_programme_print() {
+        let input = "let x = 5; let y = 10; let footbar = 6546;";
+        let mut lex = Lexer::new();
+        lex.process_input(input);
+        let mut parser = Parser::new(&mut lex);
+
+        let prog = parser.parse_programme();
+        let s: String = prog.unwrap().string();
+        assert_eq!(s, input)
+    }
+    #[test]
+    fn test_return_programme_print() {
+        let input = "return x; return 5; return t;";
+        let mut lex = Lexer::new();
+        lex.process_input(input);
+        let mut parser = Parser::new(&mut lex);
+        let prog = parser.parse_programme();
+        let s: String = prog.unwrap().string();
+        assert_eq!(s, input)
+    }
+
+    #[test]
+    fn test_let_programme_rebuild_print() {
+        let program = Program {
+            statements: vec![Box::new(LetStatement {
+                token: TokenType::Keyword(token::Keywords::LET("let")),
+                name: Identifier {
+                    token: TokenType::Ident(token::Identifier::IDENT("a".to_string())),
+                    value: "a".to_string(),
+                },
+                value: Box::new(AstNode {
+                    r#type: TokenType::Ident(token::Identifier::INT("1".to_string())),
+                    value: "1".to_string(),
+                }),
+            })],
+        };
+
+        let output = "let a = 1;";
+        assert_eq!(program.string(), output);
+    }
+
+    #[test]
+    fn test_return_programme_build_print() {
+        let program = Program {
+            statements: vec![Box::new(ReturnStatement {
+                token: TokenType::Keyword(token::Keywords::RETURN("return")),
+                value: AstNode {
+                    r#type: TokenType::Ident(token::Identifier::INT("5".to_string())),
+                    value: "5".to_string(),
+                },
+            })],
+        };
+        let output = "return 5;";
+        assert_eq!(output, program.string());
     }
 }

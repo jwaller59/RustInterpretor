@@ -1,9 +1,9 @@
 use crate::ast::*;
 use crate::{
-    lexer::{self, lexer::Lexer},
+    lexer::lexer::Lexer,
     token::token::{Operator, TokenType},
 };
-use std::{collections::HashMap, io::stdin};
+use std::collections::HashMap;
 
 pub struct Repl {
     pub assignments: HashMap<String, String>,
@@ -28,8 +28,8 @@ pub fn read(input: String) -> Repl {
             TokenType::Operator(Operator::ASSIGN(_)) => {
                 let target_token = rep.tokens[rep.tokens.len() - 2].clone();
                 rep.assignments.insert(
-                    target_token.retrieve_value().unwrap().to_string(),
-                    token.retrieve_value().unwrap().to_string(),
+                    target_token.retrieve_string().unwrap().to_string(),
+                    token.retrieve_string().unwrap().to_string(),
                 );
             }
             _ => (),
