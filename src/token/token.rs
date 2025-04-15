@@ -2,6 +2,10 @@ use core::fmt;
 
 use phf::phf_map;
 
+use crate::ast::ast::Statement;
+
+// use crate::ast::ast::ExpressionStatement;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     ASSIGN(&'static str),
@@ -20,6 +24,11 @@ pub enum Operator {
 pub enum Identifier {
     IDENT(String),
     INT(String),
+}
+
+impl Identifier {
+    pub fn prefix_parser(&self) {}
+    pub fn postfix_parser(&self) {}
 }
 
 //#[derive(Debug, PartialEq)]
@@ -71,7 +80,6 @@ static KEYWORDS: phf::Map<&'static str, Keywords> = phf_map! {
     "return" =>Keywords::RETURN("return"),
     "if" => Keywords::IF("if"),
     "else" => Keywords::ELSE("else"),
-
 };
 
 pub fn get_keywords(keyword: &str) -> Option<Keywords> {
@@ -98,6 +106,22 @@ impl TokenType {
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({})", self)
+    }
+}
+
+impl From<Box<dyn Statement>> for TokenType {
+    fn from(stmt: Box<dyn Statement>) -> Self {
+        if let Some(operator) = stmt.as_any().downcast_ref::<Operator>() {
+            TokenType::Operator(operator.clone())
+        } else if let Some(ident) = stmt.as_any().downcast_ref::<Identifier>() {
+            TokenType::Ident(ident.clone())
+        } else if let Some(del) = stmt.as_any().downcast_ref::<Delimiters>() {
+            TokenType::Del(del.clone())
+        } else if let Some(key) = stmt.as_any().downcast_ref::<Keywords>() {
+            TokenType::Keyword(key.clone())
+        } else {
+            panic!()
+        }
     }
 }
 

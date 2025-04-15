@@ -42,7 +42,7 @@ impl<'a> Lexer<'a> {
                 // mapping hashmap
                 if self.ch.is_ascii_alphabetic() {
                     let r = self.read_identifier();
-                    let token_t = get_keywords(&r);
+                    let token_t = get_keywords(r);
                     match token_t {
                         Some(x) => tok = TokenType::Keyword(x),
                         None => tok = TokenType::Ident(Identifier::IDENT(r.to_string())),
@@ -63,17 +63,17 @@ impl<'a> Lexer<'a> {
             }
         };
         self.read_char();
-        return tok;
+        tok
     }
 
     fn peekahead(&mut self) -> u8 {
         // peek ahead at next character
-        if usize::from(self.read_position) >= self.input.len() {
-            return 0;
+        if self.read_position >= self.input.len() {
+            0
         } else {
             // this will only work if its ascii characters.
             // we format to bytes
-            return self.input.bytes().nth((self.read_position).into()).unwrap();
+            self.input.as_bytes()[self.read_position]
         }
     }
 
@@ -83,17 +83,15 @@ impl<'a> Lexer<'a> {
         if current_char == b'!' {
             if peek == b'=' {
                 self.read_char();
-                return TokenType::Operator(Operator::NOEQUAL("!="));
+                TokenType::Operator(Operator::NOEQUAL("!="))
             } else {
-                return TokenType::Operator(Operator::BANG("!"));
+                TokenType::Operator(Operator::BANG("!"))
             }
+        } else if peek == b'=' {
+            self.read_char();
+            TokenType::Operator(Operator::EQ("=="))
         } else {
-            if peek == b'=' {
-                self.read_char();
-                return TokenType::Operator(Operator::EQ("=="));
-            } else {
-                return TokenType::Operator(Operator::ASSIGN("="));
-            }
+            TokenType::Operator(Operator::ASSIGN("="))
         }
     }
 

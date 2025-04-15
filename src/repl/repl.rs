@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub struct Repl {
     pub assignments: HashMap<String, String>,
     pub tokens: Vec<TokenType>,
-    pub ast: HashMap<String, ast::AstNode>,
+    pub ast: HashMap<String, String>,
 }
 
 pub fn read(input: String) -> Repl {
@@ -24,19 +24,16 @@ pub fn read(input: String) -> Repl {
     rep.tokens.push(token.clone());
     while token != TokenType::EOF {
         token = lex.next_token();
-        match rep.tokens[rep.tokens.len() - 1] {
-            TokenType::Operator(Operator::ASSIGN(_)) => {
-                let target_token = rep.tokens[rep.tokens.len() - 2].clone();
-                rep.assignments.insert(
-                    target_token.retrieve_string().unwrap().to_string(),
-                    token.retrieve_string().unwrap().to_string(),
-                );
-            }
-            _ => (),
+        if let TokenType::Operator(Operator::ASSIGN(_)) = rep.tokens[rep.tokens.len() - 1] {
+            let target_token = rep.tokens[rep.tokens.len() - 2].clone();
+            rep.assignments.insert(
+                target_token.retrieve_string().unwrap().to_string(),
+                token.retrieve_string().unwrap().to_string(),
+            );
         }
         rep.tokens.push(token.clone());
     }
-    return rep;
+    rep
 }
 
 #[cfg(test)]
