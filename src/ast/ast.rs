@@ -28,11 +28,11 @@ use crate::token::*;
 // e.g left items are identifiers and right items are assignments
 //
 //#[derive(Debug)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct LetStatement {
     pub token: token::TokenType,
     pub name: Identifier,
-    pub value: String,
+    pub value: Box<dyn Expression>,
 }
 impl Node for LetStatement {
     fn token_literal(&self) -> String {
@@ -45,14 +45,27 @@ impl Node for LetStatement {
 }
 
 impl LetStatement {
-    pub fn new(token: token::TokenType, name: Identifier, value: String) -> Self {
+    pub fn new(token: token::TokenType, name: Identifier, value: Box<dyn Expression>) -> Self {
         Self { token, name, value }
     }
 }
 
 impl Statement for LetStatement {
+    fn generate_string(&self) -> String {
+        let mut stringbuff = String::new();
+        stringbuff.push_str(self.token.retrieve_string().unwrap());
+        stringbuff.push(' ');
+        stringbuff.push_str(self.name.get_value());
+        stringbuff.push(' ');
+        stringbuff.push('=');
+        stringbuff.push(' ');
+        stringbuff.push_str(self.value.get_value());
+        stringbuff.push(';');
+        stringbuff
+    }
+
     fn get_value(&self) -> &str {
-        &self.value
+        self.value.get_value()
     }
 
     fn get_identifier(&self) -> Option<&Identifier> {
@@ -62,37 +75,35 @@ impl Statement for LetStatement {
     fn get_token(&self) -> &token::TokenType {
         &self.token
     }
-
-    fn generate_string(&self) -> String {
-        let mut string_buff = String::new();
-        string_buff.push_str(self.get_token().retrieve_string().unwrap());
-        string_buff.push(' ');
-        string_buff.push_str(&self.name.token_literal());
-        string_buff.push_str(" = ");
-        string_buff.push_str(self.get_value());
-        string_buff.push(';');
-        string_buff
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn is_equal(&self, other: &dyn Statement) -> bool {
+    fn is_equal(&self, other: &dyn Expression) -> bool {
         if let Some(other) = other.as_any().downcast_ref::<LetStatement>() {
-            self == other
+            true
         } else {
             false
         }
     }
+
+    fn partialEq(&self, other: &dyn Statement) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<LetStatement>() {
+            let o = &*other.value;
+            self.name == other.name && self.token == other.token && self.is_equal(o)
+        } else {
+            false
+        }
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct ReturnStatement {
     token: token::TokenType,
-    value: Expression,
+    value: Box<dyn Expression>,
 }
 
 impl ReturnStatement {
-    pub fn new(token: TokenType, value: Expression) -> Self {
+    pub fn new(token: TokenType, value: Box<dyn Expression>) -> Self {
         Self { token, value }
     }
 }
@@ -108,36 +119,35 @@ impl Node for ReturnStatement {
 }
 
 impl Statement for ReturnStatement {
+    fn generate_string(&self) -> String {
+        let mut stringbuff = String::new();
+        stringbuff.push_str(&self.token.retrieve_string().unwrap());
+        stringbuff.push(' ');
+        stringbuff.push_str(&self.value.get_value());
+        stringbuff.push(';');
+        stringbuff
+    }
+
+    fn get_token(&self) -> &TokenType {
+        &self.token
+    }
+
     fn get_value(&self) -> &str {
         self.value.get_value()
     }
 
     fn get_identifier(&self) -> Option<&Identifier> {
-        None
+        todo!()
     }
-
-    fn get_token(&self) -> &token::TokenType {
-        &self.token
-    }
-
-    fn generate_string(&self) -> String {
-        let mut stringbuff = String::new();
-        // if return statement return the token and value
-        stringbuff.push_str(self.get_token().retrieve_string().unwrap());
-        stringbuff.push(' ');
-        stringbuff.push_str(self.get_value());
-        stringbuff.push(';');
-        stringbuff
+    fn is_equal(&self, other: &dyn Expression) -> bool {
+        todo!()
     }
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_equal(&self, other: &dyn Statement) -> bool {
-        if let Some(other) = other.as_any().downcast_ref::<ReturnStatement>() {
-            self == other
-        } else {
-            false
-        }
+
+    fn partialEq(&self, other: &dyn Statement) -> bool {
+        todo!()
     }
 }
 
@@ -156,21 +166,18 @@ impl Node for Identifier {
     }
 }
 
-impl Statement for Identifier {
+impl Expression for Identifier {
+    fn get_identifier(&self) -> Option<&Identifier> {
+        None
+    }
     fn get_value(&self) -> &str {
         &self.value
     }
     fn get_token(&self) -> &token::TokenType {
         &self.token
     }
-    fn get_identifier(&self) -> Option<&Identifier> {
-        None
-    }
     fn generate_string(&self) -> String {
         let mut stringbuff = String::new();
-        // if return statement return the token and value
-        stringbuff.push_str(self.get_token().retrieve_string().unwrap());
-        stringbuff.push(' ');
         stringbuff.push_str(self.get_value());
         stringbuff.push(';');
         stringbuff
@@ -178,13 +185,13 @@ impl Statement for Identifier {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_equal(&self, other: &dyn Statement) -> bool {
-        if let Some(other) = other.as_any().downcast_ref::<Identifier>() {
-            self == other
-        } else {
-            false
-        }
-    }
+    // fn is_equal(&self, other: &dyn Expression) -> bool {
+    //     if let Some(other) = other.as_any().downcast_ref::<Identifier>() {
+    //         self == other
+    //     } else {
+    //         false
+    //     }
+    // }
 }
 
 impl Identifier {
@@ -193,57 +200,14 @@ impl Identifier {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Expression {
-    pub token: token::TokenType,
-    pub value: String,
-}
-
-impl Expression {
-    pub fn new(token: token::TokenType, value: String) -> Self {
-        Self { token, value }
-    }
-}
-impl Node for Expression {
-    fn token_literal(&self) -> String {
-        let val = self.token.retrieve_string();
-        match val {
-            Some(a) => a.to_string(),
-            _ => "".to_string(),
-        }
-    }
-}
-
-impl Statement for Expression {
-    fn get_value(&self) -> &str {
-        &self.value
-    }
-    fn get_token(&self) -> &token::TokenType {
-        &self.token
-    }
-    fn get_identifier(&self) -> Option<&Identifier> {
-        None
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn is_equal(&self, other: &dyn Statement) -> bool {
-        if let Some(other) = other.as_any().downcast_ref::<Expression>() {
-            self== other
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct ExpressionStatement {
     token: TokenType,
-    express: Expression,
+    express: Box<dyn Expression>,
 }
 
 impl ExpressionStatement {
-    pub fn new(token: TokenType, express: Expression) -> Self {
+    pub fn new(token: TokenType, express: Box<dyn Expression>) -> Self {
         Self { token, express }
     }
 }
@@ -256,28 +220,45 @@ impl Node for ExpressionStatement {
         }
     }
 }
+
 impl Statement for ExpressionStatement {
+    fn generate_string(&self) -> String {
+        let mut string_buff = String::new();
+        string_buff.push_str(self.token.retrieve_string().unwrap());
+        string_buff.push(' ');
+        string_buff.push_str(self.express.get_value());
+        string_buff
+    }
+
     fn get_value(&self) -> &str {
-        &self.express.value
+        self.express.get_value()
     }
-    fn get_token(&self) -> &token::TokenType {
-        &self.token
-    }
+
     fn get_identifier(&self) -> Option<&Identifier> {
         None
     }
-    fn generate_string(&self) -> String {
-        "".to_string()
+
+    fn get_token(&self) -> &token::TokenType {
+        &self.token
     }
-    fn as_any(&self) -> &dyn Any {
-        self
+
+    fn is_equal(&self, other: &dyn Expression) -> bool {
+        // if *self.value matches!(other.as_any().downcast_ref::<Identifier()>)
+        // matches!(other.as_any().downcast_ref::<Identifier>(), Some(other))
+        true
     }
-    fn is_equal(&self, other: &dyn Statement) -> bool {
-        if let Some(other) = other.as_any().downcast_ref::<ExpressionStatement>() {
-            self == other
+
+    fn partialEq(&self, other: &dyn Statement) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<LetStatement>() {
+            let o = &*other.value;
+            self.token == other.token && self.is_equal(o)
         } else {
             false
         }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -310,6 +291,20 @@ pub trait Node: Debug {
 }
 
 pub trait Statement: Node {
+    fn partialEq(&self, other: &dyn Statement) -> bool;
+    fn generate_string(&self) -> String;
+
+    fn get_value(&self) -> &str;
+
+    fn get_identifier(&self) -> Option<&Identifier>;
+
+    fn get_token(&self) -> &token::TokenType;
+
+    fn is_equal(&self, other: &dyn Expression) -> bool;
+    fn as_any(&self) -> &dyn Any;
+}
+
+pub trait Expression: Node {
     fn get_value(&self) -> &str;
 
     fn get_identifier(&self) -> Option<&Identifier>;
@@ -324,7 +319,6 @@ pub trait Statement: Node {
         string_buff
     }
     fn as_any(&self) -> &dyn Any;
-    fn is_equal(&self, other: &dyn Statement) -> bool;
 }
 
 #[derive(Debug)]
@@ -400,7 +394,10 @@ mod tests {
                     token: TokenType::Ident(token::Identifier::IDENT("a".to_string())),
                     value: "a".to_string(),
                 },
-                value: "1".to_string(),
+                value: Box::new(Identifier {
+                    token: TokenType::Ident(token::Identifier::INT('1'.to_string())),
+                    value: "1".to_string(),
+                }),
             })],
         };
 
@@ -413,10 +410,10 @@ mod tests {
         let program = Program {
             statements: vec![Box::new(ReturnStatement {
                 token: TokenType::Keyword(token::Keywords::RETURN("return")),
-                value: Expression {
+                value: Box::new(Identifier {
                     token: TokenType::Ident(token::Identifier::INT("5".to_string())),
                     value: "5".to_string(),
-                },
+                }),
             })],
         };
         let output = "return 5;";

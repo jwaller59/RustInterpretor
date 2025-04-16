@@ -1,6 +1,6 @@
 use ast::LetStatement;
 
-use crate::ast::ast::ExpressionStatement;
+use crate::ast::ast::{Expression, ExpressionStatement};
 use crate::ast::*;
 use crate::lexer::lexer::*;
 use crate::token::token::{Identifier, *};
@@ -69,24 +69,22 @@ impl<'a> Parser<'a> {
                 .parse_return_statement()
                 .map(|return_stmt| -> Box<dyn ast::Statement> { Box::new(return_stmt) }),
             _ => self
-                .parse_expression_statement(PREFIX)
+                .parse_expression_statement()
                 .map(|express_stmt| -> Box<dyn ast::Statement> { Box::new(express_stmt) }),
         }
     }
     // TODO: Reformat this as I don't like the multiple clones required - may bee too abstracted
     // Need to check which parsing function this expression has associated with it
-    fn parse_expression_statement(&mut self, _preced: i8) -> Result<ast::ExpressionStatement, ()> {
-        Ok(self.registerprefix().unwrap())
-        // Ok(ast::ExpressionStatement::new(
-        //     self.curtoken.clone(),
-        //     ast::Expression::new(
-        //         self.curtoken.clone(),
-        //         ast::String::new(
-        //             self.curtoken.clone(),
-        //             self.curtoken.retrieve_string().unwrap().to_string(),
-        //         ),
-        //     ),
-        // ))
+    fn parse_expression_statement(&mut self) -> Result<ast::ExpressionStatement, ()> {
+        if self.peektoken == TokenType::Del(Delimiters::SEMICOLON(";")) {
+            self.next_token();
+        }
+        let o = self.parse_expresssion(LOWEST).unwrap();
+        Ok(ast::ExpressionStatement::new(self.curtoken.clone(), o))
+    }
+
+    fn parse_expresssion(&mut self, preced: i8) -> Option<Box<dyn Expression>> {
+        Some(self.registerprefix().unwrap())
     }
 
     fn parse_let_statement(&mut self) -> Result<ast::LetStatement, ()> {
@@ -108,8 +106,11 @@ impl<'a> Parser<'a> {
         self.expect_peek(|t| matches!(t, TokenType::Operator(Operator::ASSIGN("="))));
         // we know current value is assign operator - so we iterate forwards again
         self.next_token();
-        let value: String = self.get_curtoken().retrieve_string().unwrap().to_string();
-        let tok = Ok(LetStatement::new(lettoken, identifier, value));
+        let value = ast::Identifier::new(
+            self.curtoken.clone(),
+            self.curtoken.retrieve_string().unwrap().to_string(),
+        );
+        let tok = Ok(LetStatement::new(lettoken, identifier, Box::new(value)));
         while !self.cur_token_is(TokenType::Del(Delimiters::SEMICOLON(";"))) {
             self.next_token();
         }
@@ -118,11 +119,11 @@ impl<'a> Parser<'a> {
 
     fn parse_return_statement(&mut self) -> Result<ast::ReturnStatement, ()> {
         // assume its a return statement
-        let expression = ast::Expression::new(
+        let expression = ast::Identifier::new(
             self.peektoken.clone(),
             self.peektoken.retrieve_string().unwrap().to_string(),
         );
-        let return_stmnt = ast::ReturnStatement::new(self.curtoken.clone(), expression);
+        let return_stmnt = ast::ReturnStatement::new(self.curtoken.clone(), Box::new(expression));
         self.next_token();
         if !self.cur_token_is(TokenType::Del(Delimiters::SEMICOLON(";"))) {
             self.next_token();
@@ -170,17 +171,14 @@ impl<'a> Parser<'a> {
 
     // helper function for parser to check whether or not the current token has the required
     // prefix/postfix method within it.
-    fn registerprefix(&self) -> Option<ExpressionStatement> {
+    fn registerprefix(&self) -> Option<Box<dyn Expression>> {
         match self.get_curtoken() {
             TokenType::Ident(s) => {
-                s.prefix_parser();
-                Some(ExpressionStatement::new(
-                    self.curtoken.clone(),
-                    ast::Expression {
-                        token: self.curtoken.clone(),
-                        value: self.curtoken.retrieve_string().unwrap().to_string(),
-                    },
-                ))
+                if s.prefix_parser() {
+                    Some(Box::new(self.parse_identifier().unwrap()))
+                } else {
+                    None
+                }
             }
             _ => None,
         }
@@ -211,7 +209,10 @@ fn check_parse_response_valid(resp: Option<impl ast::Statement>) -> Result<char,
 mod tests {
 
     use super::*;
-    use crate::{ast::ast::*, token::token::Identifier};
+    use crate::{
+        ast::ast::{Identifier, *},
+        token::{self},
+    };
 
     #[test]
     fn test_let_statements_values() {
@@ -354,14 +355,15 @@ mod tests {
         assert_eq!(parsed_values.statements.len(), 1);
         // assert that returned value in statements is of type Expression Statement
         let expected = Box::new(ExpressionStatement::new(
-            TokenType::Ident(Identifier::IDENT("foobar".to_string())),
-            ast::Expression {
-                token: TokenType::Ident(Identifier::IDENT("foobar".to_string())),
-                value: "foobar".to_string(),
-            },
+            TokenType::Ident(token::token::Identifier::IDENT("foobar".to_string())),
+            Box::new(ast::Identifier::new(
+                TokenType::Ident(token::token::Identifier::IDENT("foobar".to_string())),
+                "foobar".to_string(),
+            )),
         ));
         let response_val = &*parsed_values.statements[0];
-        assert!(expected.is_equal(response_val));
+        assert_eq!(expected.get_token(), response_val.get_token());
+        assert_eq!(expected.get_value(), response_val.get_value());
     }
 
     fn get_statement_identifiers(s: &dyn ast::Statement) -> String {

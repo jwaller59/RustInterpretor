@@ -27,8 +27,12 @@ pub enum Identifier {
 }
 
 impl Identifier {
-    pub fn prefix_parser(&self) {}
-    pub fn postfix_parser(&self) {}
+    pub fn prefix_parser(&self) -> bool {
+        true
+    }
+    pub fn postfix_parser(&self) -> bool {
+        false
+    }
 }
 
 //#[derive(Debug, PartialEq)]
@@ -109,21 +113,21 @@ impl fmt::Display for TokenType {
     }
 }
 
-impl From<Box<dyn Statement>> for TokenType {
-    fn from(stmt: Box<dyn Statement>) -> Self {
-        if let Some(operator) = stmt.as_any().downcast_ref::<Operator>() {
-            TokenType::Operator(operator.clone())
-        } else if let Some(ident) = stmt.as_any().downcast_ref::<Identifier>() {
-            TokenType::Ident(ident.clone())
-        } else if let Some(del) = stmt.as_any().downcast_ref::<Delimiters>() {
-            TokenType::Del(del.clone())
-        } else if let Some(key) = stmt.as_any().downcast_ref::<Keywords>() {
-            TokenType::Keyword(key.clone())
-        } else {
-            panic!()
-        }
-    }
-}
+// impl From<Box<dyn Expression>> for TokenType {
+//     fn from(stmt: Box<dyn Expression>) -> Self {
+//         if let Some(operator) = stmt.as_any().downcast_ref::<Operator>() {
+//             TokenType::Operator(operator.clone())
+//         } else if let Some(ident) = stmt.as_any().downcast_ref::<Identifier>() {
+//             TokenType::Ident(ident.clone())
+//         } else if let Some(del) = stmt.as_any().downcast_ref::<Delimiters>() {
+//             TokenType::Del(del.clone())
+//         } else if let Some(key) = stmt.as_any().downcast_ref::<Keywords>() {
+//             TokenType::Keyword(key.clone())
+//         } else {
+//             panic!()
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
