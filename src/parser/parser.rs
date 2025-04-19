@@ -79,12 +79,17 @@ impl<'a> Parser<'a> {
         if self.peektoken == TokenType::Del(Delimiters::SEMICOLON(";")) {
             self.next_token();
         }
-        let o = self.parse_expresssion(LOWEST).unwrap();
+        let o = self
+            .parse_expresssion(LOWEST)
+            .expect("Expression returned should never be Null");
         Ok(ast::ExpressionStatement::new(self.curtoken.clone(), o))
     }
 
     fn parse_expresssion(&mut self, preced: i8) -> Option<Box<dyn Expression>> {
-        Some(self.registerprefix().unwrap())
+        Some(
+            self.registerprefix()
+                .expect("This token cannot have a Prefix associated with it"),
+        )
     }
 
     fn parse_let_statement(&mut self) -> Result<ast::LetStatement, ()> {
@@ -108,8 +113,9 @@ impl<'a> Parser<'a> {
         self.next_token();
         let value = ast::Identifier::new(
             self.curtoken.clone(),
-            self.curtoken.retrieve_string().unwrap().to_string(),
+            ast::ReturnValue::String(self.curtoken.retrieve_string().unwrap().to_string()),
         );
+        println!("{:?}", value);
         let tok = Ok(LetStatement::new(lettoken, identifier, Box::new(value)));
         while !self.cur_token_is(TokenType::Del(Delimiters::SEMICOLON(";"))) {
             self.next_token();
@@ -121,7 +127,7 @@ impl<'a> Parser<'a> {
         // assume its a return statement
         let expression = ast::Identifier::new(
             self.peektoken.clone(),
-            self.peektoken.retrieve_string().unwrap().to_string(),
+            ast::ReturnValue::String(self.peektoken.retrieve_string().unwrap().to_string()),
         );
         let return_stmnt = ast::ReturnStatement::new(self.curtoken.clone(), Box::new(expression));
         self.next_token();
@@ -134,7 +140,7 @@ impl<'a> Parser<'a> {
     fn parse_identifier(&self) -> Option<ast::Identifier> {
         Some(ast::Identifier::new(
             self.curtoken.clone(),
-            self.curtoken.retrieve_string().unwrap().to_string(),
+            ast::ReturnValue::String(self.curtoken.retrieve_string().unwrap().to_string()),
         ))
     }
 
@@ -173,13 +179,7 @@ impl<'a> Parser<'a> {
     // prefix/postfix method within it.
     fn registerprefix(&self) -> Option<Box<dyn Expression>> {
         match self.get_curtoken() {
-            TokenType::Ident(s) => {
-                if s.prefix_parser() {
-                    Some(Box::new(self.parse_identifier().unwrap()))
-                } else {
-                    None
-                }
-            }
+            TokenType::Ident(_) => Some(Box::new(self.parse_identifier().unwrap())),
             _ => None,
         }
         // if let &self.TokenType =  {
@@ -187,12 +187,9 @@ impl<'a> Parser<'a> {
         // }
     }
 
-    fn register_postfix(&self) -> Option<()> {
+    fn register_postfix(&self) -> Option<Box<dyn Expression>> {
         match self.get_curtoken() {
-            TokenType::Ident(s) => {
-                s.postfix_parser();
-                Some(())
-            }
+            TokenType::Ident(_) => Some(Box::new(self.parse_identifier().unwrap())),
             _ => None,
         }
     }
@@ -358,7 +355,7 @@ mod tests {
             TokenType::Ident(token::token::Identifier::IDENT("foobar".to_string())),
             Box::new(ast::Identifier::new(
                 TokenType::Ident(token::token::Identifier::IDENT("foobar".to_string())),
-                "foobar".to_string(),
+                ast::ReturnValue::String("foobar".to_string()),
             )),
         ));
         let response_val = &*parsed_values.statements[0];
@@ -366,12 +363,36 @@ mod tests {
         assert_eq!(expected.get_value(), response_val.get_value());
     }
 
+    #[test]
+    fn test_integer_expression() {
+        let input = "5";
+        let mut lexer: Lexer = Lexer::new();
+        lexer.process_input(input);
+        let mut parser: Parser = Parser::new(&mut lexer);
+        let program = parser.parse_programme();
+        check_parser_errors(&parser);
+        let parsed_values = program.expect("Parser program should not panic and return None");
+        let processed = &*parsed_values.statements[0];
+        let expected = ExpressionStatement::new(
+            TokenType::Ident(token::token::Identifier::INT("5".to_string())),
+            Box::new(ast::Identifier::new(
+                TokenType::Ident(token::token::Identifier::INT("5".to_string())),
+                ReturnValue::String("5".to_string()),
+            )),
+        );
+        assert_eq!(processed.get_token(), expected.get_token());
+        assert_eq!(processed.get_value(), expected.get_value());
+    }
+
     fn get_statement_identifiers(s: &dyn ast::Statement) -> String {
         s.get_identifier().unwrap().token_literal()
     }
 
     fn get_statement_value(s: &dyn ast::Statement) -> String {
-        s.get_value().to_string()
+        match s.get_value() {
+            ReturnValue::String(e) => e.to_string(),
+            ReturnValue::Int8(e) => e.to_string(),
+        }
     }
 
     fn check_statement_type(s: &dyn ast::Statement) -> TokenType {
