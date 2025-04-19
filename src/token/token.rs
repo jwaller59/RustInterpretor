@@ -102,6 +102,8 @@ impl TokenType {
             Self::Keyword(Keywords::RETURN(s)) => Some(s),
             Self::Keyword(Keywords::FALSE(s)) => Some(s),
             Self::Keyword(Keywords::FUNCTION(s)) => Some(s),
+            Self::Operator(Operator::BANG(s)) => Some(s),
+            Self::Operator(Operator::SUBTRACT(s)) => Some(s),
             _ => None,
         }
     }

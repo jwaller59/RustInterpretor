@@ -87,6 +87,9 @@ impl Statement for LetStatement {
     fn get_token(&self) -> &token::TokenType {
         &self.token
     }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -135,6 +138,9 @@ impl Statement for ReturnStatement {
 
     fn get_identifier(&self) -> Option<&Identifier> {
         todo!()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -210,7 +216,7 @@ impl Statement for ExpressionStatement {
     }
 
     fn get_value(&self) -> &ReturnValue {
-        &self.express.get_value()
+        self.express.get_value()
     }
 
     fn get_identifier(&self) -> Option<&Identifier> {
@@ -219,6 +225,9 @@ impl Statement for ExpressionStatement {
 
     fn get_token(&self) -> &token::TokenType {
         &self.token
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -258,6 +267,8 @@ pub trait Statement: Node {
     fn get_identifier(&self) -> Option<&Identifier>;
 
     fn get_token(&self) -> &token::TokenType;
+
+    fn as_any(&self) -> &dyn Any;
 }
 
 pub trait Expression: Node {
@@ -309,7 +320,7 @@ impl Node for Program {
 #[derive(Debug)]
 pub struct IntegerLiteral {
     token: TokenType,
-    value: ReturnValue,
+    pub value: ReturnValue,
 }
 
 impl IntegerLiteral {
@@ -341,6 +352,46 @@ impl Expression for IntegerLiteral {
     }
 }
 
+#[derive(Debug)]
+pub struct PrefixOperator {
+    token: TokenType,
+    operator: String,
+    right: Box<dyn Expression>,
+}
+
+impl PrefixOperator {
+    pub fn new(token: TokenType, operator: String, right: Box<dyn Expression>) -> Self {
+        Self {
+            token,
+            operator,
+            right,
+        }
+    }
+}
+
+impl Node for PrefixOperator {
+    fn token_literal(&self) -> String {
+        todo!()
+    }
+}
+impl Expression for PrefixOperator {
+    fn get_value(&self) -> &ReturnValue {
+        self.right.get_value()
+    }
+
+    fn get_identifier(&self) -> Option<&Identifier> {
+        None
+    }
+
+    fn get_token(&self) -> &token::TokenType {
+        &self.token
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,8 +402,9 @@ mod tests {
     fn test_let_programme_print() {
         let input = "let x = 5; let y = 10; let footbar = 6546;";
         let mut lex = Lexer::new();
+        let mut errors = vec![];
         lex.process_input(input);
-        let mut parser: Parser = Parser::new(&mut lex);
+        let mut parser: Parser = Parser::new(&mut lex, &mut errors);
 
         let prog = parser.parse_programme();
         let s: String = prog.unwrap().string();
@@ -363,7 +415,8 @@ mod tests {
         let input = "return x; return 5; return t;";
         let mut lex = Lexer::new();
         lex.process_input(input);
-        let mut parser: Parser = Parser::new(&mut lex);
+        let mut errors = vec![];
+        let mut parser: Parser = Parser::new(&mut lex, &mut errors);
         let prog = parser.parse_programme();
         let s: String = prog.unwrap().string();
         assert_eq!(s, input)
