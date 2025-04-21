@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use token::TokenType;
 
@@ -40,11 +40,7 @@ pub struct LetStatement {
 }
 impl Node for LetStatement {
     fn token_literal(&self) -> String {
-        let val = self.token.retrieve_string();
-        match val {
-            Some(a) => a.to_string(),
-            _ => "".to_string(),
-        }
+        self.token.retrieve_string().to_string()
     }
 }
 
@@ -57,7 +53,7 @@ impl LetStatement {
 impl Statement for LetStatement {
     fn generate_string(&self) -> String {
         let mut stringbuff = String::new();
-        stringbuff.push_str(self.token.retrieve_string().unwrap());
+        stringbuff.push_str(self.token.retrieve_string());
         stringbuff.push(' ');
         let mut value = self.name.get_value();
         match value {
@@ -106,18 +102,14 @@ impl ReturnStatement {
 
 impl Node for ReturnStatement {
     fn token_literal(&self) -> String {
-        let val = self.token.retrieve_string();
-        match val {
-            Some(a) => a.to_string(),
-            _ => "".to_string(),
-        }
+        self.token.retrieve_string().to_string()
     }
 }
 
 impl Statement for ReturnStatement {
     fn generate_string(&self) -> String {
         let mut stringbuff = String::new();
-        stringbuff.push_str(&self.token.retrieve_string().unwrap());
+        stringbuff.push_str(&self.token.retrieve_string().to_string());
         stringbuff.push(' ');
         let value = self.get_value();
         match value {
@@ -151,11 +143,7 @@ pub struct Identifier {
 }
 impl Node for Identifier {
     fn token_literal(&self) -> String {
-        let val = self.token.retrieve_string();
-        match val {
-            Some(a) => a.to_string(),
-            _ => "".to_string(),
-        }
+        self.token.retrieve_string().to_string()
     }
 }
 
@@ -193,18 +181,14 @@ impl ExpressionStatement {
 }
 impl Node for ExpressionStatement {
     fn token_literal(&self) -> String {
-        let val = self.token.retrieve_string();
-        match val {
-            Some(a) => a.to_string(),
-            _ => "".to_string(),
-        }
+        self.token.retrieve_string().to_string()
     }
 }
 
 impl Statement for ExpressionStatement {
     fn generate_string(&self) -> String {
         let mut string_buff = String::new();
-        string_buff.push_str(self.token.retrieve_string().unwrap());
+        string_buff.push_str(self.token.retrieve_string());
         string_buff.push(' ');
         let current_value = self.express.get_value();
         match current_value {
@@ -247,11 +231,7 @@ impl AstNode {
 }
 impl Node for AstNode {
     fn token_literal(&self) -> String {
-        let val = self.r#type.retrieve_string();
-        match val {
-            Some(a) => a.to_string(),
-            _ => "".to_string(),
-        }
+        self.r#type.retrieve_string().to_string()
     }
 }
 
@@ -283,7 +263,7 @@ pub trait Expression: Node {
 
 #[derive(Debug)]
 pub struct Program {
-    pub statements: Vec<Box<dyn Statement>>,
+    statements: Vec<Box<dyn Statement>>,
 }
 
 impl Program {
@@ -291,6 +271,14 @@ impl Program {
         Self {
             statements: Vec::new(),
         }
+    }
+
+    pub fn get_statements(&self) -> &Vec<Box<dyn Statement>> {
+        &self.statements
+    }
+
+    pub fn push_statement(&mut self, statement: Box<dyn Statement>) {
+        self.statements.push(statement)
     }
 
     pub fn string(&self) -> String {
@@ -353,13 +341,95 @@ impl Expression for IntegerLiteral {
 }
 
 #[derive(Debug)]
-pub struct PrefixOperator {
+pub struct InfixExpression {
+    token: TokenType,
+    operator: String,
+    right: Box<dyn Expression>,
+    left: Box<dyn Expression>,
+}
+
+impl InfixExpression {
+    pub fn new(
+        token: TokenType,
+        operator: String,
+        right: Box<dyn Expression>,
+        left: Box<dyn Expression>,
+    ) -> Self {
+        Self {
+            token,
+            operator,
+            right,
+            left,
+        }
+    }
+
+    pub fn get_left(&self) -> &ReturnValue {
+        self.left.get_value()
+    }
+
+    pub fn get_right(&self) -> &ReturnValue {
+        self.right.get_value()
+    }
+
+    pub fn get_operator(&self) -> &String {
+        &self.operator
+    }
+}
+
+impl Node for InfixExpression {
+    fn token_literal(&self) -> String {
+        todo!()
+    }
+}
+
+impl Expression for InfixExpression {
+    fn get_value(&self) -> &ReturnValue {
+        self.get_left()
+    }
+
+    fn get_identifier(&self) -> Option<&Identifier> {
+        todo!()
+    }
+
+    fn get_token(&self) -> &token::TokenType {
+        todo!()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        todo!()
+    }
+}
+
+impl Statement for InfixExpression {
+    fn generate_string(&self) -> String {
+        todo!()
+    }
+
+    fn get_value(&self) -> &ReturnValue {
+        todo!()
+    }
+
+    fn get_identifier(&self) -> Option<&Identifier> {
+        todo!()
+    }
+
+    fn get_token(&self) -> &token::TokenType {
+        todo!()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
+pub struct PrefixExpression {
     token: TokenType,
     operator: String,
     right: Box<dyn Expression>,
 }
 
-impl PrefixOperator {
+impl PrefixExpression {
     pub fn new(token: TokenType, operator: String, right: Box<dyn Expression>) -> Self {
         Self {
             token,
@@ -369,12 +439,12 @@ impl PrefixOperator {
     }
 }
 
-impl Node for PrefixOperator {
+impl Node for PrefixExpression {
     fn token_literal(&self) -> String {
         todo!()
     }
 }
-impl Expression for PrefixOperator {
+impl Expression for PrefixExpression {
     fn get_value(&self) -> &ReturnValue {
         self.right.get_value()
     }

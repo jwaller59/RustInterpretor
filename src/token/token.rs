@@ -2,9 +2,13 @@ use core::fmt;
 
 use phf::phf_map;
 
-use crate::ast::ast::Statement;
-
-// use crate::ast::ast::ExpressionStatement;
+const LOWEST: i8 = 1;
+const EQUALS: i8 = 2;
+const LESSGREATER: i8 = 3;
+const SUM: i8 = 4;
+const PRODUCT: i8 = 5;
+const PREFIX: i8 = 6;
+const CALL: i8 = 7;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
@@ -18,6 +22,22 @@ pub enum Operator {
     LTHAN(&'static str),
     GTHAN(&'static str),
     EQ(&'static str),
+}
+
+impl Operator {
+    pub fn precedence(&self) -> i8 {
+        match self {
+            Self::EQ(_) => EQUALS,
+            Self::NOEQUAL(_) => EQUALS,
+            Self::LTHAN(_) => LESSGREATER,
+            Self::GTHAN(_) => LESSGREATER,
+            Self::PLUS(_) => SUM,
+            Self::SUBTRACT(_) => SUM,
+            Self::SLASH(_) => PRODUCT,
+            Self::ASTER(_) => PRODUCT,
+            _ => LOWEST,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -91,20 +111,23 @@ pub fn get_keywords(keyword: &str) -> Option<Keywords> {
 }
 
 impl TokenType {
-    pub fn retrieve_string(&self) -> Option<&str> {
+    pub fn retrieve_string(&self) -> &str {
         match self {
-            Self::Ident(Identifier::IDENT(s)) => Some(s),
-            Self::Ident(Identifier::INT(s)) => Some(s),
-            Self::Keyword(Keywords::LET(s)) => Some(s),
-            Self::Keyword(Keywords::TRUE(s)) => Some(s),
-            Self::Keyword(Keywords::IF(s)) => Some(s),
-            Self::Keyword(Keywords::ELSE(s)) => Some(s),
-            Self::Keyword(Keywords::RETURN(s)) => Some(s),
-            Self::Keyword(Keywords::FALSE(s)) => Some(s),
-            Self::Keyword(Keywords::FUNCTION(s)) => Some(s),
-            Self::Operator(Operator::BANG(s)) => Some(s),
-            Self::Operator(Operator::SUBTRACT(s)) => Some(s),
-            _ => None,
+            Self::Ident(Identifier::IDENT(ref s)) => s,
+            Self::Ident(Identifier::INT(ref s)) => s,
+            Self::Keyword(Keywords::LET(s)) => s,
+            Self::Keyword(Keywords::TRUE(s)) => s,
+            Self::Keyword(Keywords::IF(s)) => s,
+            Self::Keyword(Keywords::ELSE(s)) => s,
+            Self::Keyword(Keywords::RETURN(s)) => s,
+            Self::Keyword(Keywords::FALSE(s)) => s,
+            Self::Keyword(Keywords::FUNCTION(s)) => s,
+            Self::Operator(Operator::BANG(s)) => s,
+            Self::Operator(Operator::SUBTRACT(s)) => s,
+            TokenType::Operator(_) => todo!(),
+            TokenType::Illegal => todo!(),
+            TokenType::EOF => todo!(),
+            TokenType::Del(_) => todo!(),
         }
     }
 }
@@ -137,6 +160,6 @@ mod tests {
     #[test]
     fn test_retrieve_value() {
         let tokenident = TokenType::Ident(Identifier::IDENT("orange".to_string()));
-        assert_eq!(tokenident.retrieve_string().unwrap(), "orange")
+        assert_eq!(tokenident.retrieve_string(), "orange")
     }
 }

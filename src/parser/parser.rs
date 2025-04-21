@@ -5,14 +5,6 @@ use crate::ast::*;
 use crate::lexer::lexer::*;
 use crate::token::token::{Identifier, *};
 
-const LOWEST: i8 = 1;
-const EQUALS: i8 = 2;
-const LESSGREATER: i8 = 3;
-const SUM: i8 = 4;
-const PRODUCT: i8 = 5;
-const PREFIX: i8 = 6;
-const CALL: i8 = 7;
-
 pub struct Parser<'a> {
     lex: &'a mut Lexer<'a>,
     curtoken: TokenType,
@@ -35,7 +27,7 @@ impl<'a> Parser<'a> {
 impl<'a> Parser<'a> {
     fn next_token(&mut self) {
         self.curtoken = self.peektoken.clone();
-        self.peektoken = self.lex.next_token();
+        self.peektoken = self.lex.next_token().clone();
     }
 
     /// Returns a reference to the get curtoken of this [`Parser`].
@@ -53,7 +45,7 @@ impl<'a> Parser<'a> {
             let stat = self
                 .parse_statement()
                 .expect("Statement parsed was not understood and returned None");
-            prog.statements.push(stat);
+            prog.push_statement(stat);
             self.next_token();
         }
         Ok(prog)
@@ -77,7 +69,7 @@ impl<'a> Parser<'a> {
     fn parse_expression_statement(&mut self) -> Result<ast::ExpressionStatement, ()> {
         let cur_tok = self.curtoken.clone();
         let o = self
-            .parse_expresssion(LOWEST)
+            .parse_expresssion(self.cur_precedence())
             .expect("Expression returned should never be Null");
         if self.peektoken == TokenType::Del(Delimiters::SEMICOLON(";")) {
             self.next_token();
@@ -86,14 +78,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expresssion(&mut self, preced: i8) -> Option<Box<dyn Expression>> {
-        println!("{:?}", self.curtoken);
-        Some(self.registerprefix().unwrap_or_else(|| {
-            panic!(
-                "This token cannot have a Prefix associated with it, {}",
-                self.curtoken.retrieve_string().unwrap()
-            )
-        }))
-        // Some(self.registerprefix().expect("t"))
+        Some(
+            self.register_prefix()
+                .unwrap_or(self.register_infix().unwrap()),
+        )
     }
 
     fn parse_let_statement(&mut self) -> Result<ast::LetStatement, ()> {
@@ -117,7 +105,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         let value = ast::Identifier::new(
             self.curtoken.clone(),
-            ast::ReturnValue::String(self.curtoken.retrieve_string().unwrap().to_string()),
+            ast::ReturnValue::String(self.curtoken.retrieve_string().to_string()),
         );
         let tok = Ok(LetStatement::new(lettoken, identifier, Box::new(value)));
         while !self.cur_token_is(TokenType::Del(Delimiters::SEMICOLON(";"))) {
@@ -130,7 +118,7 @@ impl<'a> Parser<'a> {
         // assume its a return statement
         let expression = ast::Identifier::new(
             self.peektoken.clone(),
-            ast::ReturnValue::String(self.peektoken.retrieve_string().unwrap().to_string()),
+            ast::ReturnValue::String(self.peektoken.retrieve_string().to_string()),
         );
         let return_stmnt = ast::ReturnStatement::new(self.curtoken.clone(), Box::new(expression));
         self.next_token();
@@ -143,12 +131,12 @@ impl<'a> Parser<'a> {
     fn parse_identifier(&self) -> Option<ast::Identifier> {
         Some(ast::Identifier::new(
             self.curtoken.clone(),
-            ast::ReturnValue::String(self.curtoken.retrieve_string().unwrap().to_string()),
+            ast::ReturnValue::String(self.curtoken.retrieve_string().to_string()),
         ))
     }
 
     fn parse_integer_literal(&mut self) -> Option<ast::IntegerLiteral> {
-        match self.curtoken.retrieve_string()?.parse() {
+        match self.curtoken.retrieve_string().parse() {
             Ok(numb) => Some(ast::IntegerLiteral::new(
                 self.curtoken.clone(),
                 ast::ReturnValue::Int8(numb),
@@ -160,16 +148,37 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_prefix_expression(&mut self) -> Option<ast::PrefixOperator> {
+    fn parse_prefix_expression(&mut self) -> Option<ast::PrefixExpression> {
         let curr_tok = self.curtoken.clone();
-        let operator = curr_tok.retrieve_string().unwrap();
+        let operator = curr_tok.retrieve_string();
         self.next_token();
-        let right = self.parse_expresssion(PREFIX);
-        Some(ast::PrefixOperator::new(
+        let right = self.parse_expresssion(self.cur_precedence());
+        Some(ast::PrefixExpression::new(
             curr_tok.clone(),
             operator.to_string(),
             right?,
         ))
+    }
+
+    fn parse_infix_expression(&mut self) -> ast::InfixExpression {
+        // infix tokens need to record left and right values of an operator
+        // e.g 5 + 5
+        // 5!=5
+        // 4 - 5
+        let curr_tok = self.curtoken.clone();
+        let left = self.parse_expresssion(self.cur_precedence()).unwrap();
+        // TODO: Current retrieve_string method is consuming token enumerator, this needs to be
+        // reconfigured to retrieve the value without consuming the enum
+        // move token forwards to retrieve the operator
+        self.next_token();
+        let operator = curr_tok.clone();
+        let right = self.parse_expresssion(self.peek_precedence()).unwrap();
+        ast::InfixExpression::new(
+            curr_tok,
+            operator.retrieve_string().to_string(),
+            right,
+            left,
+        )
     }
 
     fn cur_token_is(&self, tok: TokenType) -> bool {
@@ -179,11 +188,24 @@ impl<'a> Parser<'a> {
     fn peek_error(&mut self, tok: TokenType) {
         let msg = format!(
             "Expected token to be {}, got {}",
-            tok.retrieve_string().unwrap(),
-            self.peektoken.retrieve_string().unwrap()
+            tok.retrieve_string(),
+            self.peektoken.retrieve_string()
         );
         //panic!("{}", msg);
         self.errors.push(msg);
+    }
+
+    fn peek_precedence(&self) -> i8 {
+        match self.peektoken {
+            TokenType::Operator(ref r) => r.precedence(),
+            _ => 0,
+        }
+    }
+    fn cur_precedence(&self) -> i8 {
+        match self.curtoken {
+            TokenType::Operator(ref r) => r.precedence(),
+            _ => 0,
+        }
     }
 
     fn expect_peek<F>(&mut self, matcher: F) -> bool
@@ -209,7 +231,7 @@ impl<'a> Parser<'a> {
 
     // helper function for parser to check whether or not the current token has the required
     // prefix/postfix method within it.
-    fn registerprefix(&mut self) -> Option<Box<dyn Expression>> {
+    fn register_prefix(&mut self) -> Option<Box<dyn Expression>> {
         match self.get_curtoken() {
             TokenType::Ident(Identifier::IDENT(_)) => {
                 Some(Box::new(self.parse_identifier().unwrap()))
@@ -230,14 +252,15 @@ impl<'a> Parser<'a> {
         // }
     }
 
-    fn register_postfix(&mut self) -> Option<Box<dyn Expression>> {
+    fn register_infix(&mut self) -> Option<Box<dyn Expression>> {
         match self.get_curtoken() {
-            TokenType::Ident(Identifier::IDENT(_)) => {
-                Some(Box::new(self.parse_identifier().unwrap()))
-            }
-            TokenType::Ident(Identifier::INT(_)) => {
-                Some(Box::new(self.parse_integer_literal().unwrap()))
-            }
+            TokenType::Operator(_) => Some(Box::new(self.parse_infix_expression())),
+            // TokenType::Ident(Identifier::IDENT(_)) => {
+            //     Some(Box::new(self.parse_identifier().unwrap()))
+            // }
+            // TokenType::Ident(Identifier::INT(_)) => {
+            //     Some(Box::new(self.parse_integer_literal().unwrap()))
+            // }
             _ => None,
         }
     }
@@ -252,6 +275,8 @@ fn check_parse_response_valid(resp: Option<impl ast::Statement>) -> Result<char,
 
 #[cfg(test)]
 mod tests {
+
+    use std::{i64, vec};
 
     use super::*;
     use crate::{
@@ -278,7 +303,7 @@ mod tests {
 
         for (i, v) in test_output.iter().enumerate() {
             match &prog {
-                Ok(a) => assert_eq!(get_statement_value(&*a.statements[i]), v.to_string()),
+                Ok(a) => assert_eq!(get_statement_value(&*a.get_statements()[i]), v.to_string()),
                 Err(_a) => (),
             }
         }
@@ -305,7 +330,10 @@ mod tests {
 
         for (i, v) in test_output.iter().enumerate() {
             match &prog {
-                Ok(a) => assert_eq!(get_statement_identifiers(&*a.statements[i]), v.to_string()),
+                Ok(a) => assert_eq!(
+                    get_statement_identifiers(&*a.get_statements()[i]),
+                    v.to_string()
+                ),
                 Err(_a) => (),
             }
         }
@@ -333,7 +361,10 @@ mod tests {
 
         for (i, v) in test_output.iter().enumerate() {
             match &prog {
-                Ok(a) => assert_eq!(get_statement_identifiers(&*a.statements[i]), v.to_string()),
+                Ok(a) => assert_eq!(
+                    get_statement_identifiers(&*a.get_statements()[i]),
+                    v.to_string()
+                ),
                 Err(_a) => (),
             }
         }
@@ -358,7 +389,7 @@ mod tests {
 
         for (i, v) in test_output.iter().enumerate() {
             match &prog {
-                Ok(a) => assert_eq!(get_statement_value(&*a.statements[i]), v.to_string()),
+                Ok(a) => assert_eq!(get_statement_value(&*a.get_statements()[i]), v.to_string()),
                 Err(_a) => (),
             }
         }
@@ -384,7 +415,7 @@ mod tests {
         for (i, _v) in test_output.iter().enumerate() {
             match &prog {
                 Ok(a) => assert_eq!(
-                    check_statement_type(&*a.statements[i]),
+                    check_statement_type(&*a.get_statements()[i]),
                     TokenType::Keyword(Keywords::RETURN("return"))
                 ),
                 Err(_a) => (),
@@ -403,7 +434,7 @@ mod tests {
         check_parser_errors(&parser);
         let parsed_values = program.unwrap();
         // assert length of statements is 1
-        assert_eq!(parsed_values.statements.len(), 1);
+        assert_eq!(parsed_values.get_statements().len(), 1);
         // assert that returned value in statements is of type Expression Statement
         let expected = Box::new(ExpressionStatement::new(
             TokenType::Ident(token::token::Identifier::IDENT("foobar".to_string())),
@@ -412,7 +443,7 @@ mod tests {
                 ast::ReturnValue::String("foobar".to_string()),
             )),
         ));
-        let response_val = &*parsed_values.statements[0];
+        let response_val = &*parsed_values.get_statements()[0];
         assert_eq!(expected.get_token(), response_val.get_token());
         assert_eq!(expected.get_value(), response_val.get_value());
     }
@@ -427,7 +458,7 @@ mod tests {
         let program = parser.parse_programme();
         check_parser_errors(&parser);
         let parsed_values = program.expect("Parser program should not panic and return None");
-        let processed = &*parsed_values.statements[0];
+        let processed = &*parsed_values.get_statements()[0];
         let expected = ExpressionStatement::new(
             TokenType::Ident(token::token::Identifier::INT("5".to_string())),
             Box::new(ast::Identifier::new(
@@ -466,10 +497,70 @@ mod tests {
             let mut parser = Parser::new(&mut lexer, &mut errors);
             let result = parser.parse_programme().unwrap();
             check_parser_errors(&parser);
-            let statements = result.statements;
+            let statements = result.get_statements();
             for m in statements {
-                assert_eq!(i.operator.clone(), m.get_token().retrieve_string().unwrap());
+                assert_eq!(i.operator.clone(), m.get_token().retrieve_string());
                 assert_eq!(ast::ReturnValue::Int8(i.integer_value), *m.get_value());
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_infix_expression() {
+        struct infix_parse {
+            input: String,
+            leftValue: i64,
+            operator: String,
+            RightValue: i64,
+        }
+        let test_item: Vec<infix_parse> = vec![
+            infix_parse {
+                input: "5 + 5".to_string(),
+                leftValue: 5,
+                operator: "+".to_string(),
+                RightValue: 5,
+            },
+            infix_parse {
+                input: "5 - 5".to_string(),
+                leftValue: 5,
+                operator: "-".to_string(),
+                RightValue: 5,
+            },
+            infix_parse {
+                input: "5 * 5".to_string(),
+                leftValue: 5,
+                operator: "*".to_string(),
+                RightValue: 5,
+            },
+            infix_parse {
+                input: "5 / 5".to_string(),
+                leftValue: 5,
+                operator: "/".to_string(),
+                RightValue: 5,
+            },
+            infix_parse {
+                input: "5 != 5".to_string(),
+                leftValue: 5,
+                operator: "!=".to_string(),
+                RightValue: 5,
+            },
+            infix_parse {
+                input: "5 == 5".to_string(),
+                leftValue: 5,
+                operator: "==".to_string(),
+                RightValue: 5,
+            },
+        ];
+        for i in test_item {
+            let mut lex = Lexer::new();
+            lex.process_input(&i.input);
+            let mut errors = vec![];
+            let mut proc = Parser::new(&mut lex, &mut errors);
+            let stat = proc.parse_programme().unwrap();
+            for a in stat.get_statements() {
+                assert_eq!(&*a, i.RightValue);
+                assert_eq!(&*a, i.operator);
+                assert_eq!(&*a, i.leftValue);
             }
         }
     }

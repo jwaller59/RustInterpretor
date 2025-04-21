@@ -27,8 +27,8 @@ pub fn read(input: String) -> Repl {
         if let TokenType::Operator(Operator::ASSIGN(_)) = rep.tokens[rep.tokens.len() - 1] {
             let target_token = rep.tokens[rep.tokens.len() - 2].clone();
             rep.assignments.insert(
-                target_token.retrieve_string().unwrap().to_string(),
-                token.retrieve_string().unwrap().to_string(),
+                target_token.retrieve_string().to_string(),
+                token.retrieve_string().to_string(),
             );
         }
         rep.tokens.push(token.clone());
