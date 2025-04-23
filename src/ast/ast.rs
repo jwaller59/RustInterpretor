@@ -27,7 +27,7 @@ use crate::token::*;
 // left and right values come from the decision operation either side of an operator
 // e.g left items are identifiers and right items are assignments
 //
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ReturnValue {
     Int8(i64),
     String(String),
@@ -86,6 +86,10 @@ impl Statement for LetStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn get_expess(&self) -> &dyn Any {
+        todo!()
+    }
 }
 
 #[derive(Debug)]
@@ -109,7 +113,7 @@ impl Node for ReturnStatement {
 impl Statement for ReturnStatement {
     fn generate_string(&self) -> String {
         let mut stringbuff = String::new();
-        stringbuff.push_str(&self.token.retrieve_string().to_string());
+        stringbuff.push_str(self.token.retrieve_string());
         stringbuff.push(' ');
         let value = self.get_value();
         match value {
@@ -134,9 +138,13 @@ impl Statement for ReturnStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn get_expess(&self) -> &dyn Any {
+        todo!()
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Identifier {
     token: token::TokenType,
     value: ReturnValue,
@@ -178,6 +186,10 @@ impl ExpressionStatement {
     pub fn new(token: TokenType, express: Box<dyn Expression>) -> Self {
         Self { token, express }
     }
+
+    pub fn get_express(&self) -> &Box<dyn Expression> {
+        &self.express
+    }
 }
 impl Node for ExpressionStatement {
     fn token_literal(&self) -> String {
@@ -212,6 +224,10 @@ impl Statement for ExpressionStatement {
     }
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn get_expess(&self) -> &dyn Any {
+        self.get_express()
     }
 }
 
@@ -249,9 +265,11 @@ pub trait Statement: Node {
     fn get_token(&self) -> &token::TokenType;
 
     fn as_any(&self) -> &dyn Any;
+
+    fn get_expess(&self) -> &dyn Any;
 }
 
-pub trait Expression: Node {
+pub trait Expression: Node + ExpressionClone {
     fn get_value(&self) -> &ReturnValue;
 
     fn get_identifier(&self) -> Option<&Identifier>;
@@ -259,6 +277,25 @@ pub trait Expression: Node {
     fn get_token(&self) -> &token::TokenType;
 
     fn as_any(&self) -> &dyn Any;
+}
+
+pub trait ExpressionClone {
+    fn clone_box(&self) -> Box<dyn Expression>;
+}
+
+impl<T> ExpressionClone for T
+where
+    T: Expression + Clone + 'static,
+{
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Expression> {
+    fn clone(&self) -> Box<dyn Expression> {
+        self.clone_box()
+    }
 }
 
 #[derive(Debug)]
@@ -305,7 +342,7 @@ impl Node for Program {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntegerLiteral {
     token: TokenType,
     pub value: ReturnValue,
@@ -322,6 +359,7 @@ impl Node for IntegerLiteral {
         todo!()
     }
 }
+
 impl Expression for IntegerLiteral {
     fn get_value(&self) -> &ReturnValue {
         &self.value
@@ -340,7 +378,7 @@ impl Expression for IntegerLiteral {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InfixExpression {
     token: TokenType,
     operator: String,
@@ -392,37 +430,15 @@ impl Expression for InfixExpression {
     }
 
     fn get_token(&self) -> &token::TokenType {
-        todo!()
+        &self.token
     }
 
     fn as_any(&self) -> &dyn Any {
-        todo!()
+        self
     }
 }
 
-impl Statement for InfixExpression {
-    fn generate_string(&self) -> String {
-        todo!()
-    }
-
-    fn get_value(&self) -> &ReturnValue {
-        todo!()
-    }
-
-    fn get_identifier(&self) -> Option<&Identifier> {
-        todo!()
-    }
-
-    fn get_token(&self) -> &token::TokenType {
-        todo!()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        todo!()
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PrefixExpression {
     token: TokenType,
     operator: String,

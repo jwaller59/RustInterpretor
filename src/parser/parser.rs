@@ -78,10 +78,29 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expresssion(&mut self, preced: i8) -> Option<Box<dyn Expression>> {
-        Some(
-            self.register_prefix()
-                .unwrap_or(self.register_infix().unwrap()),
-        )
+        // add in error handling
+        println!("{:}", preced);
+        let mut left_exp = self.register_prefix()?;
+        let left_exp = loop {
+            if TokenType::Del(Delimiters::SEMICOLON(";")) != self.peektoken
+                && preced < self.peek_precedence()
+            {
+                // while token is not semicolon and peektoken precedence is wrong we continiously add
+                // and overwrite the left_exp with the current value
+                println!("orange");
+                self.next_token();
+                let infix = match self.register_infix(left_exp.clone()) {
+                    Some(infix) => infix,
+                    None => break left_exp,
+                };
+                println!("green");
+                left_exp = infix;
+            } else {
+                break left_exp;
+            }
+        };
+        println!("{:?}", left_exp);
+        Some(left_exp)
     }
 
     fn parse_let_statement(&mut self) -> Result<ast::LetStatement, ()> {
@@ -160,18 +179,17 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn parse_infix_expression(&mut self) -> ast::InfixExpression {
+    fn parse_infix_expression(&mut self, left: Box<dyn Expression>) -> ast::InfixExpression {
         // infix tokens need to record left and right values of an operator
         // e.g 5 + 5
         // 5!=5
         // 4 - 5
         let curr_tok = self.curtoken.clone();
-        let left = self.parse_expresssion(self.cur_precedence()).unwrap();
+        let operator = curr_tok.clone();
         // TODO: Current retrieve_string method is consuming token enumerator, this needs to be
         // reconfigured to retrieve the value without consuming the enum
         // move token forwards to retrieve the operator
         self.next_token();
-        let operator = curr_tok.clone();
         let right = self.parse_expresssion(self.peek_precedence()).unwrap();
         ast::InfixExpression::new(
             curr_tok,
@@ -252,11 +270,35 @@ impl<'a> Parser<'a> {
         // }
     }
 
-    fn register_infix(&mut self) -> Option<Box<dyn Expression>> {
+    fn register_infix(&mut self, left: Box<dyn Expression>) -> Option<Box<dyn Expression>> {
         match self.get_curtoken() {
-            TokenType::Operator(_) => Some(Box::new(self.parse_infix_expression())),
-            // TokenType::Ident(Identifier::IDENT(_)) => {
+            TokenType::Operator(Operator::PLUS(_)) => {
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+            TokenType::Operator(Operator::SUBTRACT(_)) => {
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+            TokenType::Operator(Operator::ASTER(_)) => {
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+            TokenType::Operator(Operator::SLASH(_)) => {
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+            TokenType::Operator(Operator::GTHAN(_)) => {
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
             //     Some(Box::new(self.parse_identifier().unwrap()))
+            TokenType::Operator(Operator::LTHAN(_)) => {
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+
+            TokenType::Operator(Operator::EQ(_)) => {
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+
+            TokenType::Operator(Operator::NOEQUAL(_)) => {
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
             // }
             // TokenType::Ident(Identifier::INT(_)) => {
             //     Some(Box::new(self.parse_integer_literal().unwrap()))
@@ -558,9 +600,9 @@ mod tests {
             let mut proc = Parser::new(&mut lex, &mut errors);
             let stat = proc.parse_programme().unwrap();
             for a in stat.get_statements() {
-                assert_eq!(&*a, i.RightValue);
-                assert_eq!(&*a, i.operator);
-                assert_eq!(&*a, i.leftValue);
+                assert_eq!(get_expression_from_statement(&*a).unwrap(), i.RightValue);
+                // assert_eq!(&*a.get_value(), i.operator);
+                assert_eq!(get_expression_from_statement(&*a).unwrap(), i.leftValue);
             }
         }
     }
@@ -570,6 +612,25 @@ mod tests {
             match &concrete.value {
                 ReturnValue::Int8(e) => Some(*e),
                 ReturnValue::String(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_infix_values(s: &Box<dyn ast::Expression>, side: &str) -> Option<i64> {
+        println!("{:?}", s);
+        if let Some(infix) = s.as_any().downcast_ref::<InfixExpression>() {
+            if side == "left" {
+                match &infix.get_left() {
+                    ReturnValue::Int8(e) => Some(*e),
+                    ReturnValue::String(_) => None,
+                }
+            } else {
+                match &infix.get_right() {
+                    ReturnValue::Int8(e) => Some(*e),
+                    ReturnValue::String(_) => None,
+                }
             }
         } else {
             None
@@ -596,6 +657,15 @@ mod tests {
 
     fn check_statement_type(s: &dyn ast::Statement) -> TokenType {
         s.get_token().clone()
+    }
+
+    fn get_expression_from_statement(s: &Box<dyn Statement>) -> Option<i64> {
+        if let Some(conc) = s.as_any().downcast_ref::<ExpressionStatement>() {
+            let x = conc.get_express();
+            Some(get_infix_values(x, "left"))?
+        } else {
+            None
+        }
     }
 
     fn check_parser_errors(p: &Parser) {
