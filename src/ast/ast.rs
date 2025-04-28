@@ -168,6 +168,14 @@ impl Expression for Identifier {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn string(&self) -> String {
+        let mut stringbuff = String::new();
+        // stringbuff.push_str(" ");
+        stringbuff.push_str(&self.token_literal());
+        // stringbuff.push_str(" ");
+        stringbuff
+    }
 }
 
 impl Identifier {
@@ -200,13 +208,14 @@ impl Node for ExpressionStatement {
 impl Statement for ExpressionStatement {
     fn generate_string(&self) -> String {
         let mut string_buff = String::new();
-        string_buff.push_str(self.token.retrieve_string());
-        string_buff.push(' ');
-        let current_value = self.express.get_value();
-        match current_value {
-            ReturnValue::String(e) => string_buff.push_str(e),
-            ReturnValue::Int8(e) => string_buff.push_str(&e.to_string()),
-        }
+        // string_buff.push_str(self.token.retrieve_string());
+        // string_buff.push(' ');
+        string_buff.push_str(&self.express.string());
+        // let current_value = self.express.get_value();
+        // match current_value {
+        //     ReturnValue::String(e) => string_buff.push_str(e),
+        //     ReturnValue::Int8(e) => string_buff.push_str(&e.to_string()),
+        // }
         // string_buff.push_str(self.express.get_value());
         string_buff
     }
@@ -277,6 +286,8 @@ pub trait Expression: Node + ExpressionClone {
     fn get_token(&self) -> &token::TokenType;
 
     fn as_any(&self) -> &dyn Any;
+
+    fn string(&self) -> String;
 }
 
 pub trait ExpressionClone {
@@ -323,6 +334,7 @@ impl Program {
         // out
         let mut strbuff = String::new();
         for (i, n) in self.statements.iter().enumerate() {
+            println!("{:?}", n);
             strbuff.push_str(&n.generate_string());
             if i != self.statements.len() - 1 {
                 strbuff.push(' ');
@@ -356,7 +368,7 @@ impl IntegerLiteral {
 
 impl Node for IntegerLiteral {
     fn token_literal(&self) -> String {
-        todo!()
+        self.get_token().retrieve_string().to_string()
     }
 }
 
@@ -375,6 +387,10 @@ impl Expression for IntegerLiteral {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn string(&self) -> String {
+        self.token_literal()
     }
 }
 
@@ -436,6 +452,18 @@ impl Expression for InfixExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn string(&self) -> String {
+        let mut stringbuff = String::new();
+        stringbuff.push('(');
+        stringbuff.push_str(&self.left.string());
+        stringbuff.push(' ');
+        stringbuff.push_str(&self.operator);
+        stringbuff.push(' ');
+        stringbuff.push_str(&self.right.string());
+        stringbuff.push(')');
+        stringbuff
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -475,6 +503,15 @@ impl Expression for PrefixExpression {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn string(&self) -> String {
+        let mut stringbuff = String::new();
+        stringbuff.push('(');
+        stringbuff.push_str(&self.operator);
+        stringbuff.push_str(&self.right.string());
+        stringbuff.push(')');
+        stringbuff
     }
 }
 
