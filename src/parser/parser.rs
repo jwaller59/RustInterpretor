@@ -1,9 +1,12 @@
 use ast::LetStatement;
 
-use crate::ast::ast::{Expression, ExpressionStatement};
+use crate::ast::ast::Expression;
 use crate::ast::*;
 use crate::lexer::lexer::*;
 use crate::token::token::{Identifier, *};
+
+const PREFIX: i8 = 6;
+const CALL: i8 = 7;
 
 pub struct Parser<'a> {
     lex: &'a mut Lexer<'a>,
@@ -33,6 +36,10 @@ impl<'a> Parser<'a> {
     /// Returns a reference to the get curtoken of this [`Parser`].
     fn get_curtoken(&self) -> &TokenType {
         &self.curtoken
+    }
+
+    fn get_peektoken(&self) -> &TokenType {
+        &self.peektoken
     }
 
     pub fn parse_programme(&mut self) -> Result<ast::Program, ()> {
@@ -78,10 +85,31 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expresssion(&mut self, preced: i8) -> Option<Box<dyn Expression>> {
-        Some(
-            self.register_prefix()
-                .unwrap_or(self.register_infix().unwrap()),
-        )
+        // add in error handling
+        // println!("{:?}", self.curtoken);
+        let mut left_exp = match self.register_prefix() {
+            Some(a) => a,
+            None => return None,
+        };
+        // while token is not semicolon and peektoken precedence is wrong we continiously add
+        // and overwrite the left_exp with the current value
+        // self.next_token();
+        let left_exp = loop {
+            if TokenType::Del(Delimiters::SEMICOLON(";")) != self.peektoken
+                && preced < self.peek_precedence()
+            {
+                let infix = match self.register_infix(left_exp.clone()) {
+                    Some(infix) => infix,
+                    None => break left_exp,
+                };
+                // self.next_token();
+                left_exp = infix;
+                // println!("{:?}", left_exp);
+            } else {
+                break left_exp;
+            }
+        };
+        Some(left_exp)
     }
 
     fn parse_let_statement(&mut self) -> Result<ast::LetStatement, ()> {
@@ -152,7 +180,7 @@ impl<'a> Parser<'a> {
         let curr_tok = self.curtoken.clone();
         let operator = curr_tok.retrieve_string();
         self.next_token();
-        let right = self.parse_expresssion(self.cur_precedence());
+        let right = self.parse_expresssion(PREFIX);
         Some(ast::PrefixExpression::new(
             curr_tok.clone(),
             operator.to_string(),
@@ -160,19 +188,20 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn parse_infix_expression(&mut self) -> ast::InfixExpression {
+    fn parse_infix_expression(&mut self, left: Box<dyn Expression>) -> ast::InfixExpression {
         // infix tokens need to record left and right values of an operator
         // e.g 5 + 5
         // 5!=5
         // 4 - 5
         let curr_tok = self.curtoken.clone();
-        let left = self.parse_expresssion(self.cur_precedence()).unwrap();
+        let operator = curr_tok.clone();
         // TODO: Current retrieve_string method is consuming token enumerator, this needs to be
         // reconfigured to retrieve the value without consuming the enum
         // move token forwards to retrieve the operator
+        //
+        let precedence = self.cur_precedence();
         self.next_token();
-        let operator = curr_tok.clone();
-        let right = self.parse_expresssion(self.peek_precedence()).unwrap();
+        let right = self.parse_expresssion(precedence).unwrap();
         ast::InfixExpression::new(
             curr_tok,
             operator.retrieve_string().to_string(),
@@ -252,11 +281,44 @@ impl<'a> Parser<'a> {
         // }
     }
 
-    fn register_infix(&mut self) -> Option<Box<dyn Expression>> {
-        match self.get_curtoken() {
-            TokenType::Operator(_) => Some(Box::new(self.parse_infix_expression())),
-            // TokenType::Ident(Identifier::IDENT(_)) => {
+    fn register_infix(&mut self, left: Box<dyn Expression>) -> Option<Box<dyn Expression>> {
+        // println!("{:?}", self.get_peektoken());
+        match self.get_peektoken() {
+            TokenType::Operator(Operator::PLUS(_)) => {
+                self.next_token();
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+            TokenType::Operator(Operator::SUBTRACT(_)) => {
+                self.next_token();
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+            TokenType::Operator(Operator::ASTER(_)) => {
+                self.next_token();
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+            TokenType::Operator(Operator::SLASH(_)) => {
+                self.next_token();
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+            TokenType::Operator(Operator::GTHAN(_)) => {
+                self.next_token();
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
             //     Some(Box::new(self.parse_identifier().unwrap()))
+            TokenType::Operator(Operator::LTHAN(_)) => {
+                self.next_token();
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+
+            TokenType::Operator(Operator::EQ(_)) => {
+                self.next_token();
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
+
+            TokenType::Operator(Operator::NOEQUAL(_)) => {
+                self.next_token();
+                Some(Box::new(self.parse_infix_expression(left)))
+            }
             // }
             // TokenType::Ident(Identifier::INT(_)) => {
             //     Some(Box::new(self.parse_integer_literal().unwrap()))
@@ -509,46 +571,52 @@ mod tests {
     fn test_parsing_infix_expression() {
         struct infix_parse {
             input: String,
-            leftValue: i64,
+            left_value: i64,
             operator: String,
-            RightValue: i64,
+            right_value: i64,
         }
         let test_item: Vec<infix_parse> = vec![
             infix_parse {
                 input: "5 + 5".to_string(),
-                leftValue: 5,
+                left_value: 5,
                 operator: "+".to_string(),
-                RightValue: 5,
+                right_value: 5,
             },
             infix_parse {
                 input: "5 - 5".to_string(),
-                leftValue: 5,
+                left_value: 5,
                 operator: "-".to_string(),
-                RightValue: 5,
+                right_value: 5,
             },
             infix_parse {
                 input: "5 * 5".to_string(),
-                leftValue: 5,
+                left_value: 5,
                 operator: "*".to_string(),
-                RightValue: 5,
+                right_value: 5,
             },
             infix_parse {
                 input: "5 / 5".to_string(),
-                leftValue: 5,
+                left_value: 5,
                 operator: "/".to_string(),
-                RightValue: 5,
+                right_value: 5,
             },
             infix_parse {
                 input: "5 != 5".to_string(),
-                leftValue: 5,
+                left_value: 5,
                 operator: "!=".to_string(),
-                RightValue: 5,
+                right_value: 5,
             },
             infix_parse {
                 input: "5 == 5".to_string(),
-                leftValue: 5,
+                left_value: 5,
                 operator: "==".to_string(),
-                RightValue: 5,
+                right_value: 5,
+            },
+            infix_parse {
+                input: "5 != 6".to_string(),
+                left_value: 5,
+                operator: "!=".to_string(),
+                right_value: 6,
             },
         ];
         for i in test_item {
@@ -558,10 +626,67 @@ mod tests {
             let mut proc = Parser::new(&mut lex, &mut errors);
             let stat = proc.parse_programme().unwrap();
             for a in stat.get_statements() {
-                assert_eq!(&*a, i.RightValue);
-                assert_eq!(&*a, i.operator);
-                assert_eq!(&*a, i.leftValue);
+                assert_eq!(
+                    get_expression_from_statement(&*a, "right").unwrap(),
+                    i.right_value
+                );
+                // assert_eq!(&*a.get_value(), i.operator);
+                assert_eq!(
+                    get_expression_from_statement(&*a, "left").unwrap(),
+                    i.left_value
+                );
             }
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence() {
+        struct Tests {
+            input: String,
+            expected: String,
+        }
+
+        let test_vec: Vec<Tests> = vec![
+            Tests {
+                input: "1 + 2 + 3".to_string(),
+                expected: "((1 + 2) + 3)".to_string(),
+            },
+            Tests {
+                input: "a + b * c + d / e - f".to_string(),
+                expected: "(((a + (b * c)) + (d / e)) - f)".to_string(),
+            },
+            Tests {
+                input: "a + b * c".to_string(),
+                expected: "(a + (b * c))".to_string(),
+            },
+            Tests {
+                input: "a + b / c".to_string(),
+                expected: "(a + (b / c))".to_string(),
+            },
+            Tests {
+                input: "!-a".to_string(),
+                expected: "(!(-a))".to_string(),
+            },
+            Tests {
+                input: "-a * b".to_string(),
+                expected: "((-a) * b)".to_string(),
+            },
+            Tests {
+                input: "!a * b".to_string(),
+                expected: "((!a) * b)".to_string(),
+            },
+            Tests {
+                input: "a + b + c".to_string(),
+                expected: "((a + b) + c)".to_string(),
+            },
+        ];
+        for i in test_vec {
+            let mut lex = Lexer::new();
+            lex.process_input(&i.input);
+            let mut errors = vec![];
+            let mut p = Parser::new(&mut lex, &mut errors);
+            let r = p.parse_programme().unwrap().string();
+            assert_eq!(i.expected, r)
         }
     }
 
@@ -570,6 +695,24 @@ mod tests {
             match &concrete.value {
                 ReturnValue::Int8(e) => Some(*e),
                 ReturnValue::String(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_infix_values(s: &Box<dyn ast::Expression>, side: &str) -> Option<i64> {
+        if let Some(infix) = s.as_any().downcast_ref::<InfixExpression>() {
+            if side == "left" {
+                match &infix.get_left() {
+                    ReturnValue::Int8(e) => Some(*e),
+                    ReturnValue::String(_) => None,
+                }
+            } else {
+                match &infix.get_right() {
+                    ReturnValue::Int8(e) => Some(*e),
+                    ReturnValue::String(_) => None,
+                }
             }
         } else {
             None
@@ -596,6 +739,15 @@ mod tests {
 
     fn check_statement_type(s: &dyn ast::Statement) -> TokenType {
         s.get_token().clone()
+    }
+
+    fn get_expression_from_statement(s: &Box<dyn Statement>, side: &str) -> Option<i64> {
+        if let Some(conc) = s.as_any().downcast_ref::<ExpressionStatement>() {
+            let x = conc.get_express();
+            Some(get_infix_values(x, side)?)
+        } else {
+            None
+        }
     }
 
     fn check_parser_errors(p: &Parser) {

@@ -27,7 +27,7 @@ use crate::token::*;
 // left and right values come from the decision operation either side of an operator
 // e.g left items are identifiers and right items are assignments
 //
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ReturnValue {
     Int8(i64),
     String(String),
@@ -86,6 +86,10 @@ impl Statement for LetStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn get_expess(&self) -> &dyn Any {
+        todo!()
+    }
 }
 
 #[derive(Debug)]
@@ -109,7 +113,7 @@ impl Node for ReturnStatement {
 impl Statement for ReturnStatement {
     fn generate_string(&self) -> String {
         let mut stringbuff = String::new();
-        stringbuff.push_str(&self.token.retrieve_string().to_string());
+        stringbuff.push_str(self.token.retrieve_string());
         stringbuff.push(' ');
         let value = self.get_value();
         match value {
@@ -134,9 +138,13 @@ impl Statement for ReturnStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn get_expess(&self) -> &dyn Any {
+        todo!()
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Identifier {
     token: token::TokenType,
     value: ReturnValue,
@@ -160,6 +168,14 @@ impl Expression for Identifier {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn string(&self) -> String {
+        let mut stringbuff = String::new();
+        // stringbuff.push_str(" ");
+        stringbuff.push_str(&self.token_literal());
+        // stringbuff.push_str(" ");
+        stringbuff
+    }
 }
 
 impl Identifier {
@@ -178,6 +194,10 @@ impl ExpressionStatement {
     pub fn new(token: TokenType, express: Box<dyn Expression>) -> Self {
         Self { token, express }
     }
+
+    pub fn get_express(&self) -> &Box<dyn Expression> {
+        &self.express
+    }
 }
 impl Node for ExpressionStatement {
     fn token_literal(&self) -> String {
@@ -188,13 +208,14 @@ impl Node for ExpressionStatement {
 impl Statement for ExpressionStatement {
     fn generate_string(&self) -> String {
         let mut string_buff = String::new();
-        string_buff.push_str(self.token.retrieve_string());
-        string_buff.push(' ');
-        let current_value = self.express.get_value();
-        match current_value {
-            ReturnValue::String(e) => string_buff.push_str(e),
-            ReturnValue::Int8(e) => string_buff.push_str(&e.to_string()),
-        }
+        // string_buff.push_str(self.token.retrieve_string());
+        // string_buff.push(' ');
+        string_buff.push_str(&self.express.string());
+        // let current_value = self.express.get_value();
+        // match current_value {
+        //     ReturnValue::String(e) => string_buff.push_str(e),
+        //     ReturnValue::Int8(e) => string_buff.push_str(&e.to_string()),
+        // }
         // string_buff.push_str(self.express.get_value());
         string_buff
     }
@@ -212,6 +233,10 @@ impl Statement for ExpressionStatement {
     }
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn get_expess(&self) -> &dyn Any {
+        self.get_express()
     }
 }
 
@@ -249,9 +274,11 @@ pub trait Statement: Node {
     fn get_token(&self) -> &token::TokenType;
 
     fn as_any(&self) -> &dyn Any;
+
+    fn get_expess(&self) -> &dyn Any;
 }
 
-pub trait Expression: Node {
+pub trait Expression: Node + ExpressionClone {
     fn get_value(&self) -> &ReturnValue;
 
     fn get_identifier(&self) -> Option<&Identifier>;
@@ -259,6 +286,27 @@ pub trait Expression: Node {
     fn get_token(&self) -> &token::TokenType;
 
     fn as_any(&self) -> &dyn Any;
+
+    fn string(&self) -> String;
+}
+
+pub trait ExpressionClone {
+    fn clone_box(&self) -> Box<dyn Expression>;
+}
+
+impl<T> ExpressionClone for T
+where
+    T: Expression + Clone + 'static,
+{
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Expression> {
+    fn clone(&self) -> Box<dyn Expression> {
+        self.clone_box()
+    }
 }
 
 #[derive(Debug)]
@@ -286,6 +334,7 @@ impl Program {
         // out
         let mut strbuff = String::new();
         for (i, n) in self.statements.iter().enumerate() {
+            println!("{:?}", n);
             strbuff.push_str(&n.generate_string());
             if i != self.statements.len() - 1 {
                 strbuff.push(' ');
@@ -305,7 +354,7 @@ impl Node for Program {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntegerLiteral {
     token: TokenType,
     pub value: ReturnValue,
@@ -319,9 +368,10 @@ impl IntegerLiteral {
 
 impl Node for IntegerLiteral {
     fn token_literal(&self) -> String {
-        todo!()
+        self.get_token().retrieve_string().to_string()
     }
 }
+
 impl Expression for IntegerLiteral {
     fn get_value(&self) -> &ReturnValue {
         &self.value
@@ -338,9 +388,13 @@ impl Expression for IntegerLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn string(&self) -> String {
+        self.token_literal()
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InfixExpression {
     token: TokenType,
     operator: String,
@@ -392,37 +446,27 @@ impl Expression for InfixExpression {
     }
 
     fn get_token(&self) -> &token::TokenType {
-        todo!()
+        &self.token
     }
 
     fn as_any(&self) -> &dyn Any {
-        todo!()
+        self
+    }
+
+    fn string(&self) -> String {
+        let mut stringbuff = String::new();
+        stringbuff.push('(');
+        stringbuff.push_str(&self.left.string());
+        stringbuff.push(' ');
+        stringbuff.push_str(&self.operator);
+        stringbuff.push(' ');
+        stringbuff.push_str(&self.right.string());
+        stringbuff.push(')');
+        stringbuff
     }
 }
 
-impl Statement for InfixExpression {
-    fn generate_string(&self) -> String {
-        todo!()
-    }
-
-    fn get_value(&self) -> &ReturnValue {
-        todo!()
-    }
-
-    fn get_identifier(&self) -> Option<&Identifier> {
-        todo!()
-    }
-
-    fn get_token(&self) -> &token::TokenType {
-        todo!()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        todo!()
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PrefixExpression {
     token: TokenType,
     operator: String,
@@ -459,6 +503,15 @@ impl Expression for PrefixExpression {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn string(&self) -> String {
+        let mut stringbuff = String::new();
+        stringbuff.push('(');
+        stringbuff.push_str(&self.operator);
+        stringbuff.push_str(&self.right.string());
+        stringbuff.push(')');
+        stringbuff
     }
 }
 
